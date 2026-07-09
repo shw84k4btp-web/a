@@ -13,11 +13,18 @@ body,
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP',
     Meiryo, sans-serif;
+  /* iOS: タップ時のハイライトとダブルタップズームを無効化してアプリらしい操作感に */
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .app {
   position: relative;
   height: 100%;
+  height: 100dvh; /* iOS Safari のアドレスバーで 100vh がずれる問題への対策 */
   display: flex;
   flex-direction: column;
 }
@@ -28,6 +35,8 @@ body {
   justify-content: space-between;
   gap: 8px;
   padding: 10px 14px;
+  /* iPhone のノッチ/Dynamic Island 領域までヘッダー色を伸ばす */
+  padding-top: calc(10px + env(safe-area-inset-top));
   background: #1e40af;
   color: #fff;
   z-index: 1001;
@@ -46,7 +55,7 @@ body {
 /* ---- ステータスバー ---- */
 .status {
   position: absolute;
-  top: 56px;
+  top: calc(56px + env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
@@ -84,7 +93,8 @@ body {
 /* ---- ボタン ---- */
 .btn-small {
   flex-shrink: 0;
-  padding: 4px 12px;
+  min-height: 32px;
+  padding: 6px 14px;
   border: none;
   border-radius: 999px;
   background: #2563eb;
@@ -101,7 +111,7 @@ body {
 /* ---- 住所入力フォーム ---- */
 .address-form {
   position: absolute;
-  top: 104px;
+  top: calc(104px + env(safe-area-inset-top));
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
@@ -112,11 +122,14 @@ body {
 
 .address-form input {
   flex: 1;
+  min-width: 0;
   padding: 10px 14px;
   border: 1px solid #d1d5db;
   border-radius: 10px;
-  font-size: 14px;
+  font-size: 16px; /* 16px 未満だと iOS Safari がフォーカス時に自動ズームする */
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .address-form button {
@@ -169,7 +182,7 @@ body {
 /* ---- ルートパネル ---- */
 .route-panel {
   position: absolute;
-  bottom: 16px;
+  bottom: calc(16px + env(safe-area-inset-bottom));
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
@@ -231,4 +244,9 @@ body {
   width: 100%;
   font-size: 12px;
   color: #92400e;
+}
+
+/* Leaflet のズームコントロールをホームバーのセーフエリアより上に置く */
+.leaflet-bottom {
+  bottom: env(safe-area-inset-bottom);
 }
