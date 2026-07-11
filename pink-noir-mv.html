@@ -1,0 +1,885 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>PINK NOIR — MV Style Visual</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --ink: #0a0608;
+    --pink: #ff2d78;
+    --ice: #ffb3cf;
+    --flash: #fff5f9;
+    --deep: #5c0f2e;
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--ink);
+    color: var(--ice);
+    font-family: "SF Mono", ui-monospace, Menlo, Consolas, monospace;
+    overflow: hidden;
+  }
+  #stage {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+  }
+  canvas { display: block; }
+  #gate {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: radial-gradient(120% 90% at 50% 40%, #1a0a12 0%, var(--ink) 70%);
+    z-index: 10;
+    transition: opacity .6s ease;
+  }
+  #gate.hidden { opacity: 0; pointer-events: none; }
+  .gate-inner { text-align: center; max-width: 30rem; padding: 0 1.5rem; }
+  .gate-title {
+    font-family: "Arial Black", "Avenir Next Condensed", Impact, sans-serif;
+    font-weight: 900;
+    font-size: clamp(2.6rem, 9vw, 5rem);
+    letter-spacing: .08em;
+    line-height: .95;
+    color: var(--flash);
+    text-wrap: balance;
+    margin: 0 0 .35em;
+  }
+  .gate-title em {
+    font-style: normal;
+    color: var(--pink);
+    text-shadow: 0 0 24px rgba(255, 45, 120, .55);
+  }
+  .gate-sub {
+    font-size: .78rem;
+    letter-spacing: .32em;
+    text-transform: uppercase;
+    color: var(--ice);
+    opacity: .75;
+    margin: 0 0 2.2rem;
+  }
+  #playBtn {
+    font: inherit;
+    font-size: .85rem;
+    letter-spacing: .3em;
+    text-transform: uppercase;
+    color: var(--ink);
+    background: var(--pink);
+    border: 0;
+    padding: 1.05rem 2.6rem 1.05rem 2.9rem;
+    cursor: pointer;
+    box-shadow: 0 0 0 1px var(--pink), 0 0 34px rgba(255, 45, 120, .45);
+    transition: transform .15s ease, box-shadow .15s ease;
+  }
+  #playBtn:hover, #playBtn:focus-visible {
+    transform: translateY(-2px);
+    box-shadow: 0 0 0 1px var(--flash), 0 0 48px rgba(255, 45, 120, .75);
+    outline: none;
+  }
+  .gate-note {
+    margin-top: 1.6rem;
+    font-size: .68rem;
+    letter-spacing: .14em;
+    opacity: .5;
+    line-height: 1.7;
+  }
+  #hud {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    padding: .8rem 1.2rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    z-index: 5;
+    opacity: 0;
+    transition: opacity .4s ease;
+    background: linear-gradient(transparent, rgba(10, 6, 8, .85));
+  }
+  #hud.visible { opacity: 1; }
+  #hud button {
+    font: inherit;
+    font-size: .7rem;
+    letter-spacing: .22em;
+    text-transform: uppercase;
+    background: transparent;
+    color: var(--ice);
+    border: 1px solid rgba(255, 179, 207, .4);
+    padding: .45rem .9rem;
+    cursor: pointer;
+  }
+  #hud button:hover, #hud button:focus-visible {
+    border-color: var(--pink);
+    color: var(--flash);
+    outline: none;
+  }
+  #bar {
+    flex: 1;
+    height: 3px;
+    background: rgba(255, 179, 207, .18);
+    position: relative;
+  }
+  #barFill {
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 0%;
+    background: var(--pink);
+    box-shadow: 0 0 12px rgba(255, 45, 120, .8);
+  }
+  #section {
+    font-size: .66rem;
+    letter-spacing: .28em;
+    text-transform: uppercase;
+    color: var(--ice);
+    opacity: .8;
+    min-width: 6.5rem;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+</style>
+</head>
+<body>
+<div id="stage"><canvas id="cv"></canvas></div>
+
+<div id="gate">
+  <div class="gate-inner">
+    <h1 class="gate-title">PINK <em>NOIR</em></h1>
+    <p class="gate-sub">a k-pop mv style visual &middot; 90 sec</p>
+    <button id="playBtn" type="button">&#9654;&nbsp; Play</button>
+    <p class="gate-note">
+      音が出ます。点滅の強い演出を含みます(光過敏の方はご注意ください)。<br>
+      Sound on. Contains flashing lights.
+    </p>
+  </div>
+</div>
+
+<div id="hud">
+  <button id="toggleBtn" type="button">Pause</button>
+  <div id="bar"><div id="barFill"></div></div>
+  <div id="section">intro</div>
+</div>
+
+<script>
+(() => {
+"use strict";
+
+/* ---------------- config ---------------- */
+
+const BPM = 145;
+const BEAT = 60 / BPM;              // seconds per beat
+const BAR = BEAT * 4;
+const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const PINK  = "#ff2d78";
+const ICE   = "#ffb3cf";
+const FLASH = "#fff5f9";
+const INK   = "#0a0608";
+const DEEP  = "#5c0f2e";
+
+// song structure in bars
+const SECTIONS = [
+  { name: "intro",  bars: 8 },
+  { name: "verse",  bars: 8 },
+  { name: "build",  bars: 4 },
+  { name: "drop",   bars: 12 },
+  { name: "bridge", bars: 8 },
+  { name: "drop 2", bars: 12 },
+  { name: "outro",  bars: 4 },
+];
+const TOTAL_BARS = SECTIONS.reduce((a, s) => a + s.bars, 0);
+const TOTAL_TIME = TOTAL_BARS * BAR;
+
+const DROP_WORDS = ["BANG", "PINK", "NOIR", "BOOM", "SLAY", "GLOW", "FIRE", "QUEEN"];
+const CAPTIONS = [
+  [0,   "黒に落とすピンクのネオン"],
+  [8,   "ヒール鳴らして 真夜中のランウェイ"],
+  [16,  "3… 2… 1…"],
+  [20,  "BANG — 心臓ごと持っていく"],
+  [32,  "静かに笑って 王冠は外さない"],
+  [40,  "もう一度 — 沼まで堕として"],
+  [52,  "PINK NOIR"],
+];
+
+/* ---------------- dom ---------------- */
+
+const cv = document.getElementById("cv");
+const ctx = cv.getContext("2d");
+const gate = document.getElementById("gate");
+const hud = document.getElementById("hud");
+const playBtn = document.getElementById("playBtn");
+const toggleBtn = document.getElementById("toggleBtn");
+const barFill = document.getElementById("barFill");
+const sectionEl = document.getElementById("section");
+
+let W = 0, H = 0, DPR = 1;
+function resize() {
+  DPR = Math.min(devicePixelRatio || 1, 2);
+  // 16:9 letterboxed stage
+  const vw = innerWidth, vh = innerHeight;
+  let w = vw, h = vw * 9 / 16;
+  if (h > vh) { h = vh; w = vh * 16 / 9; }
+  W = Math.round(w); H = Math.round(h);
+  cv.width = W * DPR;
+  cv.height = H * DPR;
+  cv.style.width = W + "px";
+  cv.style.height = H + "px";
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+}
+addEventListener("resize", resize);
+resize();
+
+/* ---------------- audio engine ---------------- */
+
+let ac = null, master = null, startAt = 0, pausedAt = 0, playing = false, done = false;
+let nextBeatIdx = 0;
+const events = { kick: [], snare: [], hat: [], stab: [] };  // scheduled times
+
+function makeAudio() {
+  ac = new (window.AudioContext || window.webkitAudioContext)();
+  master = ac.createGain();
+  master.gain.value = 0.85;
+  const comp = ac.createDynamicsCompressor();
+  comp.threshold.value = -14;
+  comp.ratio.value = 5;
+  master.connect(comp).connect(ac.destination);
+}
+
+function kick(t, gain = 1) {
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.frequency.setValueAtTime(160, t);
+  o.frequency.exponentialRampToValueAtTime(42, t + 0.11);
+  g.gain.setValueAtTime(1.05 * gain, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+  o.connect(g).connect(master);
+  o.start(t); o.stop(t + 0.34);
+  events.kick.push(t);
+}
+
+function noiseBuf() {
+  const b = ac.createBuffer(1, ac.sampleRate * 0.4, ac.sampleRate);
+  const d = b.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  return b;
+}
+let _noise = null;
+
+function snare(t, gain = 1) {
+  const s = ac.createBufferSource();
+  s.buffer = _noise || (_noise = noiseBuf());
+  const f = ac.createBiquadFilter();
+  f.type = "bandpass"; f.frequency.value = 1800; f.Q.value = 0.8;
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.7 * gain, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + 0.18);
+  s.connect(f).connect(g).connect(master);
+  s.start(t); s.stop(t + 0.2);
+  // body
+  const o = ac.createOscillator(), og = ac.createGain();
+  o.frequency.setValueAtTime(190, t);
+  og.gain.setValueAtTime(0.35 * gain, t);
+  og.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+  o.connect(og).connect(master);
+  o.start(t); o.stop(t + 0.12);
+  events.snare.push(t);
+}
+
+function hat(t, open = false, gain = 1) {
+  const s = ac.createBufferSource();
+  s.buffer = _noise || (_noise = noiseBuf());
+  const f = ac.createBiquadFilter();
+  f.type = "highpass"; f.frequency.value = 7000;
+  const g = ac.createGain();
+  const dur = open ? 0.22 : 0.05;
+  g.gain.setValueAtTime(0.28 * gain, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  s.connect(f).connect(g).connect(master);
+  s.start(t); s.stop(t + dur + 0.02);
+  events.hat.push(t);
+}
+
+function bass(t, freq, dur, gain = 1) {
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = "sawtooth";
+  o.frequency.value = freq;
+  const f = ac.createBiquadFilter();
+  f.type = "lowpass"; f.frequency.value = 220; f.Q.value = 6;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.5 * gain, t + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  o.connect(f).connect(g).connect(master);
+  o.start(t); o.stop(t + dur + 0.05);
+}
+
+function stab(t, semis, dur = 0.22, gain = 1) {
+  // dark minor stab: root + minor third + fifth
+  const base = 220 * Math.pow(2, semis / 12);
+  for (const iv of [0, 3, 7]) {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = "square";
+    o.frequency.value = base * Math.pow(2, iv / 12);
+    const f = ac.createBiquadFilter();
+    f.type = "lowpass";
+    f.frequency.setValueAtTime(3200, t);
+    f.frequency.exponentialRampToValueAtTime(500, t + dur);
+    g.gain.setValueAtTime(0.11 * gain, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    o.connect(f).connect(g).connect(master);
+    o.start(t); o.stop(t + dur + 0.05);
+  }
+  events.stab.push(t);
+}
+
+function pad(t, semis, dur, gain = 1) {
+  const base = 110 * Math.pow(2, semis / 12);
+  for (const iv of [0, 3, 7, 12]) {
+    const o = ac.createOscillator(), g = ac.createGain();
+    o.type = "triangle";
+    o.frequency.value = base * Math.pow(2, iv / 12);
+    o.detune.value = (Math.random() - 0.5) * 12;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.05 * gain, t + dur * 0.3);
+    g.gain.linearRampToValueAtTime(0.0001, t + dur);
+    o.connect(g).connect(master);
+    o.start(t); o.stop(t + dur + 0.1);
+  }
+}
+
+function riser(t, dur) {
+  const o = ac.createOscillator(), g = ac.createGain();
+  o.type = "sawtooth";
+  o.frequency.setValueAtTime(80, t);
+  o.frequency.exponentialRampToValueAtTime(1400, t + dur);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.16, t + dur);
+  g.gain.setValueAtTime(0.0001, t + dur + 0.01);
+  o.connect(g).connect(master);
+  o.start(t); o.stop(t + dur + 0.05);
+}
+
+// D minor-ish progression per bar: Dm, Bb, F, C  → semitones from A220: -7, -11, -4, +3... use root offsets
+const PROG = [-7, -11, -16, -9];  // D, Bb, F, C (roots below A220)
+
+function sectionAt(bar) {
+  let acc = 0;
+  for (const s of SECTIONS) {
+    if (bar < acc + s.bars) return { ...s, start: acc, local: bar - acc };
+    acc += s.bars;
+  }
+  return { ...SECTIONS[SECTIONS.length - 1], start: acc - 4, local: 3 };
+}
+
+function scheduleBar(barIdx, t0) {
+  const sec = sectionAt(barIdx);
+  const root = PROG[barIdx % 4];
+  const name = sec.name;
+
+  if (name === "intro") {
+    // heartbeat kicks + pad
+    kick(t0, 0.8);
+    kick(t0 + BEAT * 0.4, 0.5);
+    pad(t0, root, BAR, 1);
+    if (sec.local >= 4) for (let i = 0; i < 8; i++) hat(t0 + i * BEAT / 2, false, 0.5);
+  }
+  else if (name === "verse") {
+    kick(t0); kick(t0 + BEAT * 1.5, 0.85); kick(t0 + BEAT * 2.5, 0.9);
+    snare(t0 + BEAT, 0.9); snare(t0 + BEAT * 3, 0.9);
+    for (let i = 0; i < 8; i++) hat(t0 + i * BEAT / 2, i === 7, 0.8);
+    bass(t0, 55 * Math.pow(2, (root + 7) / 12), BEAT * 1.4);
+    bass(t0 + BEAT * 2.5, 55 * Math.pow(2, (root + 7) / 12), BEAT * 1.2, 0.8);
+    pad(t0, root, BAR, 0.7);
+  }
+  else if (name === "build") {
+    const inten = (sec.local + 1) / 4;
+    // snare roll density rises per bar
+    const div = [2, 2, 4, 8][sec.local];
+    for (let i = 0; i < 4 * div; i++) snare(t0 + i * BEAT / div, 0.35 + inten * 0.45);
+    kick(t0, 1);
+    if (sec.local === 3) riser(t0, BAR);
+    else pad(t0, root, BAR, 0.5 + inten * 0.5);
+  }
+  else if (name === "drop" || name === "drop 2") {
+    kick(t0); kick(t0 + BEAT * 0.75, 0.7); kick(t0 + BEAT * 2, 1); kick(t0 + BEAT * 2.75, 0.7);
+    snare(t0 + BEAT, 1); snare(t0 + BEAT * 3, 1);
+    for (let i = 0; i < 16; i++) {
+      const roll = (i % 8 >= 6);   // 32nd feel at bar tail via doubles
+      hat(t0 + i * BEAT / 4, false, roll ? 0.9 : 0.6);
+    }
+    const bf = 55 * Math.pow(2, (root + 7) / 12);
+    bass(t0, bf, BEAT * 0.7); bass(t0 + BEAT, bf, BEAT * 0.45, 0.8);
+    bass(t0 + BEAT * 2, bf, BEAT * 0.7); bass(t0 + BEAT * 3, bf * 1.5, BEAT * 0.45, 0.7);
+    stab(t0, root + 12, 0.2); stab(t0 + BEAT * 1.5, root + 12, 0.16, 0.8);
+    stab(t0 + BEAT * 2.5, root + 15, 0.16, 0.8);
+    if (sec.local % 4 === 3) snare(t0 + BEAT * 3.5, 0.7);
+  }
+  else if (name === "bridge") {
+    pad(t0, root, BAR, 1.1);
+    kick(t0, 0.6);
+    if (sec.local % 2 === 1) snare(t0 + BEAT * 2, 0.4);
+    if (sec.local >= 6) { riser(t0, BAR); for (let i = 0; i < 8; i++) hat(t0 + i * BEAT / 2, false, 0.4); }
+  }
+  else if (name === "outro") {
+    if (sec.local === 0) { kick(t0, 1); stab(t0, root + 12, 0.6, 1.2); }
+    pad(t0, PROG[0], BAR, 1 - sec.local * 0.22);
+  }
+}
+
+let schedTimer = null;
+function schedulerTick() {
+  if (!playing) return;
+  const now = ac.currentTime;
+  while (true) {
+    const barIdx = nextBeatIdx;
+    if (barIdx >= TOTAL_BARS) break;
+    const t0 = startAt + barIdx * BAR;
+    if (t0 > now + 0.6) break;
+    scheduleBar(barIdx, Math.max(t0, now + 0.02));
+    nextBeatIdx++;
+  }
+}
+
+/* ---------------- visual helpers ---------------- */
+
+function songTime() {
+  if (!ac) return 0;
+  return (playing ? ac.currentTime : pausedAt) - startAt;
+}
+
+function env(list, t, decay) {
+  // exponential decay envelope from most recent event <= t
+  for (let i = list.length - 1; i >= 0; i--) {
+    const dt = t + startAt - list[i];
+    if (dt >= 0) return Math.exp(-dt / decay);
+    if (list[i] < t + startAt - 2) break;
+  }
+  return 0;
+}
+
+function displayFont(px, condensed = true) {
+  return `900 ${px}px "Arial Black","Avenir Next Condensed",Impact,sans-serif`;
+}
+
+function drawHeart(x, y, s, fill) {
+  ctx.save();
+  ctx.translate(x, y - s * 0.5);
+  ctx.scale(s, s);
+  ctx.beginPath();
+  ctx.moveTo(0, 0.35);
+  ctx.bezierCurveTo(-0.55, -0.25, -1.1, 0.3, 0, 1.05);
+  ctx.bezierCurveTo(1.1, 0.3, 0.55, -0.25, 0, 0.35);
+  ctx.closePath();
+  ctx.restore();  // path stays; lineWidth is applied unscaled
+  if (fill) ctx.fill(); else ctx.stroke();
+}
+
+function drawCrown(x, y, s, fill) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(s, s);
+  ctx.beginPath();
+  ctx.moveTo(-1, 0.5);
+  ctx.lineTo(-1, -0.2); ctx.lineTo(-0.5, 0.15); ctx.lineTo(0, -0.55);
+  ctx.lineTo(0.5, 0.15); ctx.lineTo(1, -0.2); ctx.lineTo(1, 0.5);
+  ctx.closePath();
+  ctx.restore();
+  if (fill) ctx.fill(); else ctx.stroke();
+}
+
+function glitchText(text, x, y, px, t, amount) {
+  ctx.font = displayFont(px);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const slices = 6;
+  for (let i = 0; i < slices; i++) {
+    const sy = y - px / 2 + (px / slices) * i;
+    const off = (Math.sin(t * 43 + i * 17.3) > 0.6 ? 1 : 0) * amount * px * 0.06 * (Math.random() - 0.5) * 2;
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, sy, W, px / slices + 1);
+    ctx.clip();
+    if (Math.abs(off) > 0.5) {
+      ctx.fillStyle = PINK;
+      ctx.fillText(text, x + off - 3, y);
+      ctx.fillStyle = ICE;
+      ctx.fillText(text, x + off + 3, y);
+    }
+    ctx.fillStyle = FLASH;
+    ctx.fillText(text, x + off, y);
+    ctx.restore();
+  }
+}
+
+// particles
+const parts = [];
+function burst(x, y, n, speed) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const v = speed * (0.3 + Math.random());
+    parts.push({
+      x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v,
+      life: 1, decay: 0.9 + Math.random() * 0.6,
+      kind: Math.random() < 0.18 ? "heart" : "spark",
+      hue: Math.random() < 0.7,
+    });
+  }
+  if (parts.length > 500) parts.splice(0, parts.length - 500);
+}
+let lastKickCount = 0, lastSnareCount = 0;
+
+/* ---------------- scenes ---------------- */
+
+function currentSection(t) {
+  const bar = Math.floor(t / BAR);
+  return sectionAt(Math.min(bar, TOTAL_BARS - 1));
+}
+
+function bg(t, k) {
+  const g = ctx.createRadialGradient(W / 2, H * 0.45, 0, W / 2, H * 0.45, W * 0.7);
+  g.addColorStop(0, `rgba(92,15,46,${0.35 + k * 0.3})`);
+  g.addColorStop(1, INK);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+}
+
+function sceneIntro(t, local, k, s) {
+  bg(t, k);
+  const prog = local / (SECTIONS[0].bars * BAR);
+  // pulsing heart
+  ctx.strokeStyle = PINK;
+  ctx.lineWidth = 2.5 + k * 4;
+  ctx.shadowColor = PINK;
+  ctx.shadowBlur = 20 + k * 50;
+  drawHeart(W / 2, H * 0.3, H * 0.13 * (1 + k * 0.18), false);
+  ctx.shadowBlur = 0;
+  // title reveal
+  if (prog > 0.15) {
+    const a = Math.min(1, (prog - 0.15) / 0.2);
+    ctx.globalAlpha = a;
+    glitchText("PINK NOIR", W / 2, H * 0.62, H * 0.15, t, REDUCED ? 0 : 0.4 + k);
+    ctx.globalAlpha = a * 0.7;
+    ctx.font = `400 ${H * 0.022}px "SF Mono",ui-monospace,monospace`;
+    ctx.fillStyle = ICE;
+    ctx.textAlign = "center";
+    ctx.letterSpacing = "0.4em";
+    ctx.fillText("B L A C K P I N K   S T Y L E   V I S U A L", W / 2, H * 0.75);
+    ctx.letterSpacing = "0em";
+    ctx.globalAlpha = 1;
+  }
+}
+
+function sceneVerse(t, local, k, s) {
+  bg(t, k * 0.6);
+  // rotating type ring
+  const words = "PINK NOIR ✕ PINK NOIR ✕ ";
+  ctx.save();
+  ctx.translate(W / 2, H / 2);
+  ctx.rotate(t * 0.15);
+  ctx.font = displayFont(H * 0.055);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const R = H * 0.36;
+  for (let i = 0; i < words.length; i++) {
+    const a = (i / words.length) * Math.PI * 2;
+    ctx.save();
+    ctx.rotate(a);
+    ctx.translate(0, -R);
+    ctx.fillStyle = i % 2 ? "rgba(255,179,207,.75)" : PINK;
+    ctx.fillText(words[i], 0, 0);
+    ctx.restore();
+  }
+  ctx.restore();
+  // center crown pulsing with kick
+  ctx.fillStyle = FLASH;
+  ctx.shadowColor = PINK;
+  ctx.shadowBlur = 30 * k;
+  drawCrown(W / 2, H / 2, H * 0.07 * (1 + k * 0.25), true);
+  ctx.shadowBlur = 0;
+  // side bars on snare
+  ctx.fillStyle = `rgba(255,45,120,${s * 0.8})`;
+  ctx.fillRect(0, 0, W * 0.03 * s, H);
+  ctx.fillRect(W - W * 0.03 * s, 0, W * 0.03 * s, H);
+}
+
+function sceneBuild(t, local, k, s, secDur) {
+  const prog = local / secDur;
+  bg(t, prog);
+  // converging lines
+  const n = 24;
+  ctx.strokeStyle = `rgba(255,45,120,${0.25 + prog * 0.6})`;
+  ctx.lineWidth = 1.5;
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + t * (0.2 + prog * 2);
+    const r0 = (H * 0.9) * (1 - ((t * (1 + prog * 6) + i * 0.35) % 1));
+    ctx.beginPath();
+    ctx.moveTo(W / 2 + Math.cos(a) * r0, H / 2 + Math.sin(a) * r0);
+    ctx.lineTo(W / 2 + Math.cos(a) * (r0 + 40 + prog * 120), H / 2 + Math.sin(a) * (r0 + 40 + prog * 120));
+    ctx.stroke();
+  }
+  // countdown 3..2..1 on last bars
+  const barsLeft = Math.ceil(secDur / BAR - local / BAR);
+  if (barsLeft <= 3) {
+    const shake = REDUCED ? 0 : s * 8;
+    glitchText(String(barsLeft), W / 2 + (Math.random() - .5) * shake, H / 2, H * 0.5, t, REDUCED ? 0 : s);
+  } else {
+    glitchText("READY?", W / 2, H / 2, H * 0.18, t, REDUCED ? 0 : 0.3);
+  }
+}
+
+function sceneDrop(t, local, k, s, secName) {
+  const beatIdx = Math.floor(local / BEAT);
+  const barIdx = Math.floor(local / BAR);
+  // strobe: invert ground on kick (skip when reduced motion)
+  const strobe = !REDUCED && k > 0.82;
+  if (strobe) {
+    ctx.fillStyle = PINK;
+    ctx.fillRect(0, 0, W, H);
+  } else {
+    bg(t, k * 0.5);
+  }
+  const fg = strobe ? INK : FLASH;
+  // camera shake
+  ctx.save();
+  if (!REDUCED) ctx.translate((Math.random() - .5) * 14 * k, (Math.random() - .5) * 14 * k);
+
+  // giant word per beat
+  const word = DROP_WORDS[(barIdx * 2 + (beatIdx % 4 >= 2 ? 1 : 0) + (secName === "drop 2" ? 4 : 0)) % DROP_WORDS.length];
+  const scalePop = 1 + k * 0.12;
+  ctx.save();
+  ctx.translate(W / 2, H / 2);
+  ctx.scale(scalePop, scalePop);
+  ctx.rotate((beatIdx % 2 ? -1 : 1) * 0.02);
+  ctx.font = displayFont(H * 0.3);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  // outline echo
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = strobe ? "rgba(10,6,8,.5)" : "rgba(255,45,120,.55)";
+  ctx.strokeText(word, 0, -H * 0.02 - 14);
+  ctx.strokeText(word, 0, -H * 0.02 + 14);
+  ctx.fillStyle = fg;
+  ctx.fillText(word, 0, -H * 0.02);
+  ctx.restore();
+
+  // crown + hearts orbiting
+  const orbA = t * 1.2;
+  for (let i = 0; i < 6; i++) {
+    const a = orbA + (i / 6) * Math.PI * 2;
+    const x = W / 2 + Math.cos(a) * W * 0.36;
+    const y = H / 2 + Math.sin(a) * H * 0.36;
+    ctx.fillStyle = strobe ? INK : (i % 2 ? PINK : ICE);
+    if (i % 3 === 0) drawCrown(x, y, H * 0.02, true);
+    else drawHeart(x, y, H * 0.018, true);
+  }
+
+  // beat ticks bottom
+  ctx.fillStyle = strobe ? INK : ICE;
+  for (let i = 0; i < 4; i++) {
+    const on = i === (beatIdx % 4);
+    ctx.globalAlpha = on ? 1 : 0.25;
+    ctx.fillRect(W / 2 - 60 + i * 32, H * 0.88, 20, 5);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+function sceneBridge(t, local, k, s) {
+  bg(t, 0.15);
+  // floating hearts drifting up
+  ctx.save();
+  for (let i = 0; i < 26; i++) {
+    const seed = i * 137.5;
+    const x = ((seed * 7.13) % 1.13 % 1) * W;
+    const y = H - (((t * (14 + (i % 5) * 6) + seed) % (H + 80)) - 40);
+    const sz = H * (0.008 + (i % 7) * 0.004);
+    ctx.globalAlpha = 0.25 + (i % 4) * 0.15;
+    ctx.fillStyle = i % 3 ? PINK : ICE;
+    drawHeart(x, y, sz, true);
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
+  // soft center text
+  ctx.font = displayFont(H * 0.085);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = "rgba(255,245,249,.9)";
+  ctx.shadowColor = PINK;
+  ctx.shadowBlur = 26;
+  ctx.fillText("静 か に 、 燃 え て る", W / 2, H * 0.46);
+  ctx.shadowBlur = 0;
+  ctx.font = `400 ${H * 0.02}px "SF Mono",ui-monospace,monospace`;
+  ctx.fillStyle = "rgba(255,179,207,.6)";
+  ctx.fillText("— quiet, but on fire —", W / 2, H * 0.56);
+}
+
+function sceneOutro(t, local, k, s, secDur) {
+  bg(t, 0.1);
+  const fade = Math.min(1, local / 1.2);
+  ctx.globalAlpha = fade;
+  glitchText("PINK NOIR", W / 2, H * 0.42, H * 0.13, t, 0);
+  ctx.font = `400 ${H * 0.02}px "SF Mono",ui-monospace,monospace`;
+  ctx.textAlign = "center";
+  ctx.fillStyle = ICE;
+  ctx.fillText("black × pink · generated in your browser", W / 2, H * 0.56);
+  ctx.fillStyle = "rgba(255,179,207,.5)";
+  ctx.fillText("↻ replay from the button below", W / 2, H * 0.63);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = FLASH;
+  drawCrown(W / 2, H * 0.28, H * 0.045, true);
+  // fade to black at very end
+  const out = Math.max(0, (local - (secDur - 1.5)) / 1.5);
+  if (out > 0) { ctx.fillStyle = `rgba(10,6,8,${out})`; ctx.fillRect(0, 0, W, H); }
+}
+
+/* ---------------- captions + overlays ---------------- */
+
+function drawCaption(t) {
+  let text = null;
+  for (const [bar, s] of CAPTIONS) if (t >= bar * BAR) text = s;
+  if (!text) return;
+  ctx.font = `400 ${Math.max(13, H * 0.024)}px "Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  const y = H * 0.94;
+  const w = ctx.measureText(text).width;
+  ctx.fillStyle = "rgba(10,6,8,.65)";
+  ctx.fillRect(W / 2 - w / 2 - 14, y - H * 0.022, w + 28, H * 0.044);
+  ctx.fillStyle = FLASH;
+  ctx.fillText(text, W / 2, y);
+}
+
+function drawGrainAndVignette(t) {
+  // vignette
+  const g = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, H * 0.85);
+  g.addColorStop(0, "rgba(0,0,0,0)");
+  g.addColorStop(1, "rgba(5,2,4,.55)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+  // scanline flicker
+  if (!REDUCED) {
+    ctx.fillStyle = "rgba(255,245,249,.02)";
+    for (let y = (t * 120) % 6; y < H; y += 6) ctx.fillRect(0, y, W, 1);
+  }
+}
+
+function drawParticles(dt) {
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const p = parts[i];
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    p.vy += 320 * dt * 0.4;
+    p.life -= p.decay * dt;
+    if (p.life <= 0) { parts.splice(i, 1); continue; }
+    ctx.globalAlpha = Math.max(0, p.life);
+    ctx.fillStyle = p.hue ? PINK : FLASH;
+    if (p.kind === "heart") drawHeart(p.x, p.y, 8 * p.life, true);
+    else ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+  }
+  ctx.globalAlpha = 1;
+}
+
+/* ---------------- main loop ---------------- */
+
+let lastFrame = 0;
+function frame(ms) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (ms - lastFrame) / 1000 || 0.016);
+  lastFrame = ms;
+  if (!ac) {
+    // idle backdrop behind the gate
+    ctx.fillStyle = INK; ctx.fillRect(0, 0, W, H);
+    return;
+  }
+  schedulerTick();
+  const t = Math.min(songTime(), TOTAL_TIME);
+  const k = env(events.kick, t, 0.13);
+  const s = env(events.snare, t, 0.16);
+
+  // spawn bursts on new percussive events
+  if (events.kick.length > lastKickCount) {
+    lastKickCount = events.kick.length;
+    const sec = currentSection(t).name;
+    if (sec.startsWith("drop")) burst(W / 2, H / 2, 22, 260);
+  }
+  if (events.snare.length > lastSnareCount) {
+    lastSnareCount = events.snare.length;
+    const sec = currentSection(t).name;
+    if (sec.startsWith("drop")) burst(W * (0.2 + Math.random() * 0.6), H * 0.35, 14, 200);
+  }
+
+  const sec = currentSection(t);
+  const local = t - sec.start * BAR;
+  const secDur = sec.bars * BAR;
+
+  ctx.clearRect(0, 0, W, H);
+  switch (sec.name) {
+    case "intro":  sceneIntro(t, local, k, s); break;
+    case "verse":  sceneVerse(t, local, k, s); break;
+    case "build":  sceneBuild(t, local, k, s, secDur); break;
+    case "drop":
+    case "drop 2": sceneDrop(t, local, k, s, sec.name); break;
+    case "bridge": sceneBridge(t, local, k, s); break;
+    case "outro":  sceneOutro(t, local, k, s, secDur); break;
+  }
+  drawParticles(dt);
+  drawCaption(t);
+  drawGrainAndVignette(t);
+
+  // hud
+  barFill.style.width = (t / TOTAL_TIME * 100).toFixed(2) + "%";
+  sectionEl.textContent = sec.name + " · " + Math.floor(t) + "s";
+
+  if (t >= TOTAL_TIME && !done) {
+    done = true;
+    playing = false;
+    pausedAt = startAt + TOTAL_TIME;  // freeze clock at the end
+    toggleBtn.textContent = "Replay";
+  }
+}
+requestAnimationFrame(frame);
+
+/* ---------------- controls ---------------- */
+
+function startSong() {
+  if (!ac) makeAudio();
+  if (ac.state === "suspended") ac.resume();
+  events.kick.length = events.snare.length = events.hat.length = events.stab.length = 0;
+  parts.length = 0;
+  lastKickCount = lastSnareCount = 0;
+  nextBeatIdx = 0;
+  done = false;
+  startAt = ac.currentTime + 0.15;
+  playing = true;
+  toggleBtn.textContent = "Pause";
+  if (schedTimer) clearInterval(schedTimer);
+  schedTimer = setInterval(schedulerTick, 120);
+}
+
+playBtn.addEventListener("click", () => {
+  gate.classList.add("hidden");
+  hud.classList.add("visible");
+  startSong();
+});
+
+toggleBtn.addEventListener("click", () => {
+  if (done) { startSong(); return; }
+  if (playing) {
+    pausedAt = ac.currentTime;
+    ac.suspend();
+    playing = false;
+    toggleBtn.textContent = "Play";
+  } else {
+    ac.resume();
+    playing = true;
+    toggleBtn.textContent = "Pause";
+  }
+});
+
+document.addEventListener("keydown", (e) => {
+  if (e.code === "Space" && !gate.classList.contains("hidden")) { e.preventDefault(); playBtn.click(); }
+  else if (e.code === "Space") { e.preventDefault(); toggleBtn.click(); }
+});
+
+})();
+</script>
+</body>
+</html>
