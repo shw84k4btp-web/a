@@ -234,7 +234,7 @@ resize();
 
 let ac = null, master = null, startAt = 0, pausedAt = 0, playing = false, done = false;
 let nextBeatIdx = 0;
-const events = { kick: [], snare: [], hat: [], stab: [] };  // scheduled times
+const events = { kick: [], snare: [], hat: [], stab: [], vox: [] };  // scheduled times
 
 function makeAudio() {
   ac = new (window.AudioContext || window.webkitAudioContext)();
@@ -346,6 +346,29 @@ function pad(t, semis, dur, gain = 1) {
   }
 }
 
+function voice(t, midi, dur, gain = 1) {
+  // synthetic lead "vocal": detuned saw+triangle with vibrato, drives mouth animation
+  const f = 440 * Math.pow(2, (midi - 69) / 12);
+  const o = ac.createOscillator(); o.type = "sawtooth"; o.frequency.setValueAtTime(f, t);
+  const o2 = ac.createOscillator(); o2.type = "triangle"; o2.frequency.setValueAtTime(f, t);
+  o2.detune.value = 8;
+  const vib = ac.createOscillator(); vib.frequency.value = 5.5;
+  const vg = ac.createGain();
+  vg.gain.setValueAtTime(0, t);
+  vg.gain.linearRampToValueAtTime(7, t + Math.min(0.25, dur * 0.5));
+  vib.connect(vg); vg.connect(o.detune); vg.connect(o2.detune);
+  const fl = ac.createBiquadFilter(); fl.type = "lowpass"; fl.frequency.value = 1500; fl.Q.value = 1.1;
+  const g = ac.createGain();
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(0.13 * gain, t + 0.04);
+  g.gain.setValueAtTime(0.13 * gain, t + Math.max(0.05, dur - 0.06));
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur + 0.05);
+  o.connect(fl); o2.connect(fl); fl.connect(g).connect(master);
+  o.start(t); o2.start(t); vib.start(t);
+  o.stop(t + dur + 0.1); o2.stop(t + dur + 0.1); vib.stop(t + dur + 0.1);
+  events.vox.push({ t, d: dur });
+}
+
 function riser(t, dur) {
   const o = ac.createOscillator(), g = ac.createGain();
   o.type = "sawtooth";
@@ -389,6 +412,11 @@ function scheduleBar(barIdx, t0) {
     bass(t0, 55 * Math.pow(2, (root + 7) / 12), BEAT * 1.4);
     bass(t0 + BEAT * 2.5, 55 * Math.pow(2, (root + 7) / 12), BEAT * 1.2, 0.8);
     pad(t0, root, BAR, 0.7);
+    // vocal phrase (D minor pentatonic), alternating call/answer per bar
+    const PHRASE = sec.local % 2 === 0
+      ? [[0, 74, 0.55], [0.75, 72, 0.3], [1.5, 69, 0.8], [2.5, 65, 0.5], [3.25, 67, 0.55]]
+      : [[0, 69, 0.5], [1, 72, 0.45], [1.75, 74, 1.1], [3, 69, 0.8]];
+    for (const [b, n, d] of PHRASE) voice(t0 + b * BEAT, n, d * BEAT * 1.5);
   }
   else if (name === "build") {
     const inten = (sec.local + 1) / 4;
@@ -416,6 +444,11 @@ function scheduleBar(barIdx, t0) {
   else if (name === "bridge") {
     pad(t0, root, BAR, 1.1);
     kick(t0, 0.6);
+    // slow duet line
+    const BPH = sec.local % 2 === 0
+      ? [[0, 65, 2.2], [2.25, 67, 1.6]]
+      : [[0, 69, 2.2], [2.5, 74, 1.4]];
+    for (const [b, n, d] of BPH) voice(t0 + b * BEAT, n, d * BEAT, 0.8);
     if (sec.local % 2 === 1) snare(t0 + BEAT * 2, 0.4);
     if (sec.local >= 6) { riser(t0, BAR); for (let i = 0; i < 8; i++) hat(t0 + i * BEAT / 2, false, 0.4); }
   }
@@ -484,6 +517,227 @@ function drawCrown(x, y, s, fill) {
   ctx.closePath();
   ctx.restore();
   if (fill) ctx.fill(); else ctx.stroke();
+}
+
+/* ---------------- members ---------------- */
+
+const MEMBERS = [
+  { name: "ROSA", accent: "#ff2d78", hair: "long" },
+  { name: "YUKI", accent: "#ffb3cf", hair: "pony" },
+  { name: "NANA", accent: "#fff5f9", hair: "buns" },
+  { name: "RIRI", accent: "#ff6f9e", hair: "bob"  },
+];
+
+// pose angles: 0 = limb hanging down, PI/2 = horizontal out, PI = straight up
+const POSES = {
+  idle:  { aL: [0.18, 0.10], aR: [0.18, 0.10], lL: [0.10, 0.05],  lR: [0.10, 0.05],  lean: 0,     dip: 0    },
+  vUp:   { aL: [2.45, 2.75], aR: [2.45, 2.75], lL: [0.16, 0.06],  lR: [0.16, 0.06],  lean: 0,     dip: 0.02 },
+  hips:  { aL: [0.80, 1.95], aR: [0.80, 1.95], lL: [0.14, 0.05],  lR: [0.14, 0.05],  lean: 0,     dip: 0    },
+  point: { aL: [0.80, 1.90], aR: [1.55, 1.55], lL: [0.05, 0.02],  lR: [0.30, 0.10],  lean: 0.10,  dip: 0.03 },
+  cross: { aL: [1.10, 2.30], aR: [1.10, 2.30], lL: [0.12, 0.05],  lR: [0.12, 0.05],  lean: -0.05, dip: 0.05 },
+  slide: { aL: [2.10, 2.50], aR: [1.35, 0.70], lL: [0.30, 0.12],  lR: [0.05, 0.02],  lean: -0.14, dip: 0.06 },
+  clap:  { aL: [1.90, 2.35], aR: [1.90, 2.35], lL: [0.10, 0.04],  lR: [0.10, 0.04],  lean: 0.06,  dip: 0.02 },
+  gun:   { aL: [1.00, 2.40], aR: [1.50, 1.50], lL: [0.20, 0.08],  lR: [0.20, 0.08],  lean: 0.08,  dip: 0.04 },
+  low:   { aL: [0.55, 0.30], aR: [0.55, 0.30], lL: [0.38, -0.28], lR: [0.38, -0.28], lean: 0,     dip: 0.16 },
+};
+const DANCE_SEQ = ["vUp", "hips", "point", "cross", "slide", "clap", "gun", "low"];
+
+const lerp = (a, b, u) => a + (b - a) * u;
+function lerpPose(p, q, u) {
+  const L = (a, b) => [lerp(a[0], b[0], u), lerp(a[1], b[1], u)];
+  return { aL: L(p.aL, q.aL), aR: L(p.aR, q.aR), lL: L(p.lL, q.lL), lR: L(p.lR, q.lR),
+           lean: lerp(p.lean, q.lean, u), dip: lerp(p.dip, q.dip, u) };
+}
+
+// snap into the new pose in the first ~40% of each beat (dance "hit" feel)
+function dancePose(local) {
+  const idx = Math.floor(local / BEAT);
+  const u = (local % BEAT) / BEAT;
+  const e = Math.min(1, u / 0.38);
+  const snap = 1 - Math.pow(1 - e, 3);
+  const cur = POSES[DANCE_SEQ[((idx % 8) + 8) % 8]];
+  const prv = POSES[DANCE_SEQ[(((idx - 1) % 8) + 8) % 8]];
+  return lerpPose(prv, cur, snap);
+}
+
+function hairMini(m, hx, hy, r, t, flip) {
+  ctx.fillStyle = m.accent;
+  ctx.beginPath(); ctx.arc(hx, hy, r * 1.12, Math.PI * 0.95, Math.PI * 2.05); ctx.fill();
+  const sway = Math.sin(t * 2.2 + hx * 0.02) * r * 0.25;
+  if (m.hair === "long") {
+    for (const sd of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(hx + sd * r * 1.05, hy - r * 0.2);
+      ctx.quadraticCurveTo(hx + sd * r * 1.3 + sway, hy + r * 2.1, hx + sd * r * 0.7 + sway, hy + r * 3.0);
+      ctx.lineTo(hx + sd * r * 0.25, hy + r * 0.6);
+      ctx.closePath(); ctx.fill();
+    }
+  } else if (m.hair === "pony") {
+    ctx.beginPath();
+    ctx.moveTo(hx, hy - r * 1.05);
+    ctx.quadraticCurveTo(hx - flip * r * 1.7 + sway, hy - r * 0.3, hx - flip * r * 1.1 + sway * 1.5, hy + r * 1.9);
+    ctx.quadraticCurveTo(hx - flip * r * 0.4, hy + r * 0.5, hx, hy - r * 0.55);
+    ctx.closePath(); ctx.fill();
+  } else if (m.hair === "buns") {
+    ctx.beginPath(); ctx.arc(hx - r * 0.75, hy - r * 0.85, r * 0.42, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hx + r * 0.75, hy - r * 0.85, r * 0.42, 0, Math.PI * 2); ctx.fill();
+  } else { // bob
+    for (const sd of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(hx + sd * r * 0.95, hy + r * 0.25, r * 0.38, r * 0.85, sd * 0.15, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+// neon stick-figure dancer; x = feet center, groundY = floor, h = body height
+function drawMember(m, x, groundY, h, pose, t, opts = {}) {
+  const flip = opts.flip ? -1 : 1;
+  const col = opts.color || m.accent;
+  const dip = (pose.dip + (opts.bounce || 0)) * h;
+  const hipY = groundY - h * 0.50 + dip;
+  const shX = x + Math.sin(pose.lean) * h * 0.26 * flip;
+  const shY = hipY - h * 0.30;
+  const headR = h * 0.085;
+  const headX = shX + Math.sin(pose.lean) * h * 0.08 * flip;
+  const headY = shY - h * 0.09 - headR;
+  const sw = h * 0.115, hw = h * 0.075;
+
+  ctx.save();
+  ctx.lineWidth = Math.max(2, h * 0.035);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = col;
+  ctx.shadowColor = col;
+  ctx.shadowBlur = opts.glow ?? 10;
+
+  const seg2 = (x0, y0, l1, l2, a, side) => {
+    const ex = x0 + Math.sin(a[0]) * l1 * side, ey = y0 + Math.cos(a[0]) * l1;
+    const px = ex + Math.sin(a[1]) * l2 * side, py = ey + Math.cos(a[1]) * l2;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(ex, ey); ctx.lineTo(px, py); ctx.stroke();
+  };
+
+  // legs
+  seg2(x - hw * flip, hipY, h * 0.26, h * 0.24, pose.lL, -flip);
+  seg2(x + hw * flip, hipY, h * 0.26, h * 0.24, pose.lR, flip);
+  // torso + shoulders
+  ctx.beginPath(); ctx.moveTo(x, hipY); ctx.lineTo(shX, shY); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(shX - sw, shY); ctx.lineTo(shX + sw, shY); ctx.stroke();
+  // skirt hint (filled so it reads as a dress, not crossing lines)
+  ctx.beginPath();
+  ctx.moveTo(x, hipY - h * 0.1);
+  ctx.lineTo(x - hw * 2.1, hipY + h * 0.05);
+  ctx.lineTo(x + hw * 2.1, hipY + h * 0.05);
+  ctx.closePath();
+  ctx.save();
+  ctx.globalAlpha *= 0.4;
+  ctx.fillStyle = col;
+  ctx.fill();
+  ctx.restore();
+  ctx.stroke();
+  // arms
+  seg2(shX - sw * flip, shY, h * 0.16, h * 0.15, pose.aL, -flip);
+  seg2(shX + sw * flip, shY, h * 0.16, h * 0.15, pose.aR, flip);
+  // head + hair
+  ctx.fillStyle = "#140a10";
+  ctx.beginPath(); ctx.arc(headX, headY, headR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  if (!opts.color) hairMini(m, headX, headY, headR, t, flip);
+  ctx.restore();
+}
+
+function hairBack(m, r, t) {
+  ctx.fillStyle = m.accent;
+  const sway = Math.sin(t * 1.6) * r * 0.12;
+  if (m.hair === "long") {
+    // two side curtains falling past the shoulders, chest left open
+    for (const sd of [-1, 1]) {
+      ctx.beginPath();
+      ctx.moveTo(sd * r * 0.55, -r * 0.85);
+      ctx.quadraticCurveTo(sd * r * 1.45, -r * 0.2, sd * r * 1.35 + sway, r * 2.0);
+      ctx.quadraticCurveTo(sd * r * 1.5 + sway, r * 3.3, sd * r * 0.95 + sway, r * 3.4);
+      ctx.quadraticCurveTo(sd * r * 0.9, r * 1.4, sd * r * 0.78, r * 0.5);
+      ctx.closePath(); ctx.fill();
+    }
+  } else if (m.hair === "pony") {
+    ctx.beginPath(); ctx.arc(0, -r * 1.2, r * 0.36, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(0, -r * 1.25);
+    ctx.quadraticCurveTo(-r * 2.0 + sway * 2, -r * 0.2, -r * 1.5 + sway * 3, r * 2.4);
+    ctx.quadraticCurveTo(-r * 0.9, r * 0.9, -r * 0.25, -r * 1.0);
+    ctx.closePath(); ctx.fill();
+  } else if (m.hair === "buns") {
+    ctx.beginPath(); ctx.arc(-r * 0.8, -r * 0.95, r * 0.45, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(r * 0.8, -r * 0.95, r * 0.45, 0, Math.PI * 2); ctx.fill();
+  } else { // bob
+    ctx.beginPath(); ctx.ellipse(0, r * 0.3, r * 1.35, r * 1.25, 0, 0, Math.PI * 2); ctx.fill();
+  }
+}
+
+// close-up singing shot; x,y = head center, s = head radius, dir = mic hand side
+function drawSinger(m, x, y, s, t, mouth, dir = 1, alpha = 1) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  const bob = Math.sin(t * 1.8) * s * 0.05;
+  ctx.translate(x, y + bob);
+  ctx.rotate(Math.sin(t * 0.9) * 0.05);
+  ctx.lineWidth = Math.max(2, s * 0.09);
+  ctx.lineCap = "round";
+  ctx.strokeStyle = m.accent;
+  ctx.shadowColor = m.accent;
+  ctx.shadowBlur = 18;
+  ctx.fillStyle = "#150a11";
+  // shoulders / bust
+  ctx.beginPath();
+  ctx.moveTo(-s * 2.5, s * 3.6);
+  ctx.quadraticCurveTo(-s * 2.3, s * 1.7, -s * 0.75, s * 1.35);
+  ctx.lineTo(-s * 0.42, s * 0.9);
+  ctx.lineTo(s * 0.42, s * 0.9);
+  ctx.lineTo(s * 0.75, s * 1.35);
+  ctx.quadraticCurveTo(s * 2.3, s * 1.7, s * 2.5, s * 3.6);
+  ctx.fill(); ctx.stroke();
+  hairBack(m, s, t);
+  // head
+  ctx.fillStyle = "#150a11";
+  ctx.beginPath(); ctx.arc(0, 0, s, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  // bangs cap
+  ctx.fillStyle = m.accent;
+  ctx.beginPath(); ctx.arc(0, 0, s * 1.03, Math.PI * 1.15, Math.PI * 1.85); ctx.closePath(); ctx.fill();
+  // eyes: closed lashes
+  ctx.shadowBlur = 0;
+  ctx.lineWidth = Math.max(1.5, s * 0.05);
+  ctx.beginPath(); ctx.arc(-s * 0.38, -s * 0.05, s * 0.16, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
+  ctx.beginPath(); ctx.arc(s * 0.38, -s * 0.05, s * 0.16, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
+  // mouth opens with the vocal line
+  ctx.fillStyle = m.accent;
+  ctx.beginPath();
+  ctx.ellipse(0, s * 0.48, s * 0.16 + mouth * s * 0.06, s * 0.05 + mouth * s * 0.22, 0, 0, Math.PI * 2);
+  ctx.fill();
+  // mic
+  ctx.shadowBlur = 14;
+  ctx.strokeStyle = ICE;
+  ctx.lineWidth = Math.max(2, s * 0.08);
+  ctx.beginPath();
+  ctx.moveTo(dir * s * 0.85, s * 0.9);
+  ctx.lineTo(dir * s * 1.5, s * 2.1);
+  ctx.stroke();
+  ctx.fillStyle = FLASH;
+  ctx.beginPath(); ctx.arc(dir * s * 0.78, s * 0.78, s * 0.24, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
+}
+
+// mouth-open envelope from scheduled vocal notes
+function voxOpen(t) {
+  const now = t + startAt;
+  for (let i = events.vox.length - 1; i >= 0; i--) {
+    const v = events.vox[i];
+    if (now >= v.t - 0.03 && now <= v.t + v.d + 0.09) {
+      const a = Math.min(1, (now - v.t + 0.03) / 0.07);
+      const r = Math.min(1, (v.t + v.d + 0.09 - now) / 0.09);
+      return Math.max(0, Math.min(a, r)) * (0.72 + 0.28 * Math.sin(now * 22));
+    }
+    if (v.t < now - 6) break;
+  }
+  return 0;
 }
 
 function glitchText(text, x, y, px, t, amount) {
@@ -570,35 +824,60 @@ function sceneIntro(t, local, k, s) {
 
 function sceneVerse(t, local, k, s) {
   bg(t, k * 0.6);
-  // rotating type ring
+  // faint rotating type ring behind the singer
   const words = "PINK NOIR ✕ PINK NOIR ✕ ";
   ctx.save();
+  ctx.globalAlpha = 0.3;
   ctx.translate(W / 2, H / 2);
   ctx.rotate(t * 0.15);
-  ctx.font = displayFont(H * 0.055);
+  ctx.font = displayFont(H * 0.05);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  const R = H * 0.36;
+  const R = H * 0.42;
   for (let i = 0; i < words.length; i++) {
     const a = (i / words.length) * Math.PI * 2;
     ctx.save();
     ctx.rotate(a);
     ctx.translate(0, -R);
-    ctx.fillStyle = i % 2 ? "rgba(255,179,207,.75)" : PINK;
+    ctx.fillStyle = i % 2 ? ICE : PINK;
     ctx.fillText(words[i], 0, 0);
     ctx.restore();
   }
   ctx.restore();
-  // center crown pulsing with kick
+  ctx.globalAlpha = 1;
+
+  // spotlight
+  const lg = ctx.createRadialGradient(W / 2, H * 0.1, 0, W / 2, H * 0.5, H * 0.9);
+  lg.addColorStop(0, "rgba(255,179,207,.14)");
+  lg.addColorStop(1, "rgba(255,179,207,0)");
+  ctx.fillStyle = lg;
+  ctx.fillRect(0, 0, W, H);
+
+  // singing close-up: cut to the next member every 2 bars
+  const cut = Math.floor(local / (BAR * 2));
+  const m = MEMBERS[cut % 4];
+  drawSinger(m, W / 2, H * 0.42, H * 0.115, t + cut * 7, voxOpen(t), cut % 2 ? -1 : 1);
+
+  // name tag (MV credit style)
+  ctx.font = `400 ${H * 0.022}px "SF Mono",ui-monospace,monospace`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillStyle = m.accent;
+  ctx.fillRect(W * 0.06, H * 0.82 - H * 0.008, H * 0.016, H * 0.016);
   ctx.fillStyle = FLASH;
-  ctx.shadowColor = PINK;
-  ctx.shadowBlur = 30 * k;
-  drawCrown(W / 2, H / 2, H * 0.07 * (1 + k * 0.25), true);
-  ctx.shadowBlur = 0;
+  ctx.fillText(m.name + "  /  vocal", W * 0.06 + H * 0.03, H * 0.82);
+
   // side bars on snare
-  ctx.fillStyle = `rgba(255,45,120,${s * 0.8})`;
-  ctx.fillRect(0, 0, W * 0.03 * s, H);
-  ctx.fillRect(W - W * 0.03 * s, 0, W * 0.03 * s, H);
+  ctx.fillStyle = `rgba(255,45,120,${s * 0.7})`;
+  ctx.fillRect(0, 0, W * 0.025 * s, H);
+  ctx.fillRect(W - W * 0.025 * s, 0, W * 0.025 * s, H);
+
+  // white flash on each camera cut
+  const cutLocal = local % (BAR * 2);
+  if (!REDUCED && cutLocal < 0.09 && local > 0.1) {
+    ctx.fillStyle = `rgba(255,245,249,${0.5 * (1 - cutLocal / 0.09)})`;
+    ctx.fillRect(0, 0, W, H);
+  }
 }
 
 function sceneBuild(t, local, k, s, secDur) {
@@ -616,6 +895,13 @@ function sceneBuild(t, local, k, s, secDur) {
     ctx.lineTo(W / 2 + Math.cos(a) * (r0 + 40 + prog * 120), H / 2 + Math.sin(a) * (r0 + 40 + prog * 120));
     ctx.stroke();
   }
+  // members stepping into formation
+  ctx.globalAlpha = Math.min(1, prog * 1.6) * 0.85;
+  for (let i = 0; i < 4; i++) {
+    drawMember(MEMBERS[i], W / 2 + (i - 1.5) * W * 0.14, H * 0.88, H * 0.3, POSES.idle, t,
+      { flip: i >= 2, glow: 6, bounce: k * 0.04 });
+  }
+  ctx.globalAlpha = 1;
   // countdown 3..2..1 on last bars
   const barsLeft = Math.ceil(secDur / BAR - local / BAR);
   if (barsLeft <= 3) {
@@ -642,34 +928,53 @@ function sceneDrop(t, local, k, s, secName) {
   ctx.save();
   if (!REDUCED) ctx.translate((Math.random() - .5) * 14 * k, (Math.random() - .5) * 14 * k);
 
-  // giant word per beat
+  // giant word per beat, upper third
   const word = DROP_WORDS[(barIdx * 2 + (beatIdx % 4 >= 2 ? 1 : 0) + (secName === "drop 2" ? 4 : 0)) % DROP_WORDS.length];
-  const scalePop = 1 + k * 0.12;
+  const scalePop = 1 + k * 0.1;
   ctx.save();
-  ctx.translate(W / 2, H / 2);
+  ctx.translate(W / 2, H * 0.28);
   ctx.scale(scalePop, scalePop);
-  ctx.rotate((beatIdx % 2 ? -1 : 1) * 0.02);
-  ctx.font = displayFont(H * 0.3);
+  ctx.rotate((beatIdx % 2 ? -1 : 1) * 0.015);
+  ctx.font = displayFont(H * 0.22);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   // outline echo
   ctx.lineWidth = 2;
   ctx.strokeStyle = strobe ? "rgba(10,6,8,.5)" : "rgba(255,45,120,.55)";
-  ctx.strokeText(word, 0, -H * 0.02 - 14);
-  ctx.strokeText(word, 0, -H * 0.02 + 14);
+  ctx.strokeText(word, 0, -12);
+  ctx.strokeText(word, 0, 12);
   ctx.fillStyle = fg;
-  ctx.fillText(word, 0, -H * 0.02);
+  ctx.fillText(word, 0, 0);
   ctx.restore();
 
-  // crown + hearts orbiting
-  const orbA = t * 1.2;
-  for (let i = 0; i < 6; i++) {
-    const a = orbA + (i / 6) * Math.PI * 2;
-    const x = W / 2 + Math.cos(a) * W * 0.36;
-    const y = H / 2 + Math.sin(a) * H * 0.36;
-    ctx.fillStyle = strobe ? INK : (i % 2 ? PINK : ICE);
-    if (i % 3 === 0) drawCrown(x, y, H * 0.02, true);
-    else drawHeart(x, y, H * 0.018, true);
+  // stage floor
+  const floorY = H * 0.86;
+  ctx.strokeStyle = strobe ? "rgba(10,6,8,.6)" : "rgba(255,45,120,.35)";
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, floorY); ctx.lineTo(W, floorY); ctx.stroke();
+
+  // dance formation: line <-> diamond every 4 bars, center spot rotates
+  const diamond = (barIdx % 8) >= 4;
+  const order = [0, 1, 2, 3].map(i => (i + Math.floor(barIdx / 4)) % 4);
+  const slots = [0, 1, 2, 3].map(slot => {
+    const fx = diamond ? [0, -0.24, 0.24, 0][slot] : [-0.28, -0.095, 0.095, 0.28][slot];
+    const fz = diamond ? [0, 0.55, 0.55, 1][slot] : 0.25;
+    return { slot, fx, fz };
+  }).sort((a, b) => b.fz - a.fz);   // draw back row first
+  const pose = dancePose(local);
+  for (const { slot, fx, fz } of slots) {
+    const m = MEMBERS[order[slot]];
+    const hgt = H * 0.44 * (1 - fz * 0.22);
+    const gy = floorY - fz * H * 0.055;
+    const dx = W / 2 + fx * W;
+    ctx.fillStyle = "rgba(0,0,0,.4)";
+    ctx.beginPath(); ctx.ellipse(dx, gy + 4, hgt * 0.16, hgt * 0.03, 0, 0, Math.PI * 2); ctx.fill();
+    drawMember(m, dx, gy, hgt, pose, t, {
+      flip: slot >= 2,
+      bounce: k * 0.05,
+      color: strobe ? INK : null,
+      glow: strobe ? 0 : 12,
+    });
   }
 
   // beat ticks bottom
@@ -698,34 +1003,48 @@ function sceneBridge(t, local, k, s) {
   }
   ctx.restore();
   ctx.globalAlpha = 1;
-  // soft center text
-  ctx.font = displayFont(H * 0.085);
+  // soft text, top
+  ctx.font = displayFont(H * 0.06);
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillStyle = "rgba(255,245,249,.9)";
   ctx.shadowColor = PINK;
   ctx.shadowBlur = 26;
-  ctx.fillText("静 か に 、 燃 え て る", W / 2, H * 0.46);
+  ctx.fillText("静 か に 、 燃 え て る", W / 2, H * 0.15);
   ctx.shadowBlur = 0;
-  ctx.font = `400 ${H * 0.02}px "SF Mono",ui-monospace,monospace`;
+  ctx.font = `400 ${H * 0.018}px "SF Mono",ui-monospace,monospace`;
   ctx.fillStyle = "rgba(255,179,207,.6)";
-  ctx.fillText("— quiet, but on fire —", W / 2, H * 0.56);
+  ctx.fillText("— quiet, but on fire —", W / 2, H * 0.23);
+  // duet: the pair swaps halfway through the bridge
+  const pair = local < BAR * 4 ? [0, 2] : [1, 3];
+  const mouth = voxOpen(t);
+  drawSinger(MEMBERS[pair[0]], W * 0.28, H * 0.54, H * 0.09, t, mouth, 1, 0.95);
+  drawSinger(MEMBERS[pair[1]], W * 0.72, H * 0.56, H * 0.09, t + 3.1, mouth * 0.85, -1, 0.95);
 }
 
 function sceneOutro(t, local, k, s, secDur) {
   bg(t, 0.1);
   const fade = Math.min(1, local / 1.2);
   ctx.globalAlpha = fade;
-  glitchText("PINK NOIR", W / 2, H * 0.42, H * 0.13, t, 0);
-  ctx.font = `400 ${H * 0.02}px "SF Mono",ui-monospace,monospace`;
+  glitchText("PINK NOIR", W / 2, H * 0.32, H * 0.11, t, 0);
+  ctx.font = `400 ${H * 0.019}px "SF Mono",ui-monospace,monospace`;
   ctx.textAlign = "center";
   ctx.fillStyle = ICE;
-  ctx.fillText("black × pink · generated in your browser", W / 2, H * 0.56);
+  ctx.fillText("black × pink · generated in your browser", W / 2, H * 0.44);
   ctx.fillStyle = "rgba(255,179,207,.5)";
-  ctx.fillText("↻ replay from the button below", W / 2, H * 0.63);
-  ctx.globalAlpha = 1;
+  ctx.fillText("↻ replay from the button below", W / 2, H * 0.50);
+  // member lineup with name credits
+  for (let i = 0; i < 4; i++) {
+    const x = W / 2 + (i - 1.5) * W * 0.14;
+    drawMember(MEMBERS[i], x, H * 0.84, H * 0.24, POSES.idle, t, { flip: i >= 2, glow: 8 });
+    ctx.font = `400 ${H * 0.016}px "SF Mono",ui-monospace,monospace`;
+    ctx.textAlign = "center";
+    ctx.fillStyle = MEMBERS[i].accent;
+    ctx.fillText(MEMBERS[i].name, x, H * 0.885);
+  }
   ctx.fillStyle = FLASH;
-  drawCrown(W / 2, H * 0.28, H * 0.045, true);
+  drawCrown(W / 2, H * 0.18, H * 0.04, true);
+  ctx.globalAlpha = 1;
   // fade to black at very end
   const out = Math.max(0, (local - (secDur - 1.5)) / 1.5);
   if (out > 0) { ctx.fillStyle = `rgba(10,6,8,${out})`; ctx.fillRect(0, 0, W, H); }
@@ -842,7 +1161,7 @@ requestAnimationFrame(frame);
 function startSong() {
   if (!ac) makeAudio();
   if (ac.state === "suspended") ac.resume();
-  events.kick.length = events.snare.length = events.hat.length = events.stab.length = 0;
+  events.kick.length = events.snare.length = events.hat.length = events.stab.length = events.vox.length = 0;
   parts.length = 0;
   lastKickCount = lastSnareCount = 0;
   nextBeatIdx = 0;
