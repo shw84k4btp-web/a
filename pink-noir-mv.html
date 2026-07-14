@@ -522,11 +522,20 @@ function drawCrown(x, y, s, fill) {
 /* ---------------- members ---------------- */
 
 const MEMBERS = [
-  { name: "ROSA", accent: "#ff2d78", hair: "long" },
-  { name: "YUKI", accent: "#ffb3cf", hair: "pony" },
-  { name: "NANA", accent: "#fff5f9", hair: "buns" },
-  { name: "RIRI", accent: "#ff6f9e", hair: "bob"  },
+  { name: "ROSA", accent: "#ff2d78", hair: "long",
+    hairC: "#e84d86", hairHi: "#ff9ec2", brow: "#8f3a5c",
+    skin: "#f4cbb4", line: "#c99a84", lip: "#d94f6e" },
+  { name: "YUKI", accent: "#ffb3cf", hair: "pony",
+    hairC: "#e9cf9a", hairHi: "#f8ecca", brow: "#8a6a48",
+    skin: "#f8dcc8", line: "#d0a98f", lip: "#d76a80" },
+  { name: "NANA", accent: "#fff5f9", hair: "buns",
+    hairC: "#3a2833", hairHi: "#6b5262", brow: "#2c1e28",
+    skin: "#f0c4ab", line: "#c4977e", lip: "#c74a62" },
+  { name: "RIRI", accent: "#ff6f9e", hair: "bob",
+    hairC: "#7a4a32", hairHi: "#a8734f", brow: "#5c3826",
+    skin: "#f6d2bd", line: "#cda28a", lip: "#d55a72" },
 ];
+const OUTFIT = "#170b12";
 
 // pose angles: 0 = limb hanging down, PI/2 = horizontal out, PI = straight up
 const POSES = {
@@ -560,16 +569,36 @@ function dancePose(local) {
   return lerpPose(prv, cur, snap);
 }
 
+// tapered limb segment with round joints
+function capsule(x1, y1, x2, y2, w1, w2) {
+  const dx = x2 - x1, dy = y2 - y1, L = Math.hypot(dx, dy) || 1;
+  const nx = -dy / L, ny = dx / L;
+  ctx.beginPath();
+  ctx.moveTo(x1 + nx * w1, y1 + ny * w1);
+  ctx.lineTo(x2 + nx * w2, y2 + ny * w2);
+  ctx.lineTo(x2 - nx * w2, y2 - ny * w2);
+  ctx.lineTo(x1 - nx * w1, y1 - ny * w1);
+  ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.arc(x1, y1, w1, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x2, y2, w2, 0, Math.PI * 2); ctx.fill();
+}
+
+function jointsOf(x0, y0, l1, l2, a, side) {
+  const ex = x0 + Math.sin(a[0]) * l1 * side, ey = y0 + Math.cos(a[0]) * l1;
+  const px = ex + Math.sin(a[1]) * l2 * side, py = ey + Math.cos(a[1]) * l2;
+  return [ex, ey, px, py];
+}
+
 function hairMini(m, hx, hy, r, t, flip) {
-  ctx.fillStyle = m.accent;
-  ctx.beginPath(); ctx.arc(hx, hy, r * 1.12, Math.PI * 0.95, Math.PI * 2.05); ctx.fill();
+  ctx.fillStyle = m.hairC;
+  ctx.beginPath(); ctx.arc(hx, hy - r * 0.08, r * 1.08, Math.PI * 0.95, Math.PI * 2.05); ctx.fill();
   const sway = Math.sin(t * 2.2 + hx * 0.02) * r * 0.25;
   if (m.hair === "long") {
     for (const sd of [-1, 1]) {
       ctx.beginPath();
-      ctx.moveTo(hx + sd * r * 1.05, hy - r * 0.2);
-      ctx.quadraticCurveTo(hx + sd * r * 1.3 + sway, hy + r * 2.1, hx + sd * r * 0.7 + sway, hy + r * 3.0);
-      ctx.lineTo(hx + sd * r * 0.25, hy + r * 0.6);
+      ctx.moveTo(hx + sd * r * 1.05, hy - r * 0.25);
+      ctx.quadraticCurveTo(hx + sd * r * 1.45 + sway, hy + r * 2.0, hx + sd * r * 1.0 + sway, hy + r * 3.0);
+      ctx.lineTo(hx + sd * r * 0.72, hy + r * 0.5);
       ctx.closePath(); ctx.fill();
     }
   } else if (m.hair === "pony") {
@@ -579,149 +608,356 @@ function hairMini(m, hx, hy, r, t, flip) {
     ctx.quadraticCurveTo(hx - flip * r * 0.4, hy + r * 0.5, hx, hy - r * 0.55);
     ctx.closePath(); ctx.fill();
   } else if (m.hair === "buns") {
-    ctx.beginPath(); ctx.arc(hx - r * 0.75, hy - r * 0.85, r * 0.42, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(hx + r * 0.75, hy - r * 0.85, r * 0.42, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hx - r * 0.72, hy - r * 0.9, r * 0.4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(hx + r * 0.72, hy - r * 0.9, r * 0.4, 0, Math.PI * 2); ctx.fill();
   } else { // bob
     for (const sd of [-1, 1]) {
       ctx.beginPath();
-      ctx.ellipse(hx + sd * r * 0.95, hy + r * 0.25, r * 0.38, r * 0.85, sd * 0.15, 0, Math.PI * 2);
+      ctx.ellipse(hx + sd * r * 0.9, hy + r * 0.2, r * 0.36, r * 0.85, sd * 0.15, 0, Math.PI * 2);
       ctx.fill();
     }
   }
+  // sheen
+  ctx.strokeStyle = m.hairHi;
+  ctx.lineWidth = Math.max(1, r * 0.12);
+  ctx.beginPath(); ctx.arc(hx, hy - r * 0.1, r * 0.85, Math.PI * 1.2, Math.PI * 1.55); ctx.stroke();
 }
 
-// neon stick-figure dancer; x = feet center, groundY = floor, h = body height
+// full-body dancer with human proportions; x = feet center, groundY = floor, h = height
 function drawMember(m, x, groundY, h, pose, t, opts = {}) {
   const flip = opts.flip ? -1 : 1;
-  const col = opts.color || m.accent;
+  const sil = opts.color || null;                 // strobe silhouette override
+  const skin = sil || m.skin;
+  const outfit = sil || OUTFIT;
   const dip = (pose.dip + (opts.bounce || 0)) * h;
-  const hipY = groundY - h * 0.50 + dip;
-  const shX = x + Math.sin(pose.lean) * h * 0.26 * flip;
-  const shY = hipY - h * 0.30;
-  const headR = h * 0.085;
-  const headX = shX + Math.sin(pose.lean) * h * 0.08 * flip;
-  const headY = shY - h * 0.09 - headR;
-  const sw = h * 0.115, hw = h * 0.075;
+  const hipY = groundY - h * 0.52 + dip;
+  const shX = x + Math.sin(pose.lean) * h * 0.22 * flip;
+  const shY = hipY - h * 0.27;
+  const headR = h * 0.062;
+  const headX = shX + Math.sin(pose.lean) * h * 0.05 * flip;
+  const headY = shY - h * 0.05 - headR;
+  const sw = h * 0.095, hw = h * 0.062;
 
   ctx.save();
-  ctx.lineWidth = Math.max(2, h * 0.035);
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.strokeStyle = col;
-  ctx.shadowColor = col;
-  ctx.shadowBlur = opts.glow ?? 10;
+  if (!sil) { ctx.shadowColor = "rgba(255,45,120,.4)"; ctx.shadowBlur = opts.glow ?? 8; }
 
-  const seg2 = (x0, y0, l1, l2, a, side) => {
-    const ex = x0 + Math.sin(a[0]) * l1 * side, ey = y0 + Math.cos(a[0]) * l1;
-    const px = ex + Math.sin(a[1]) * l2 * side, py = ey + Math.cos(a[1]) * l2;
-    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(ex, ey); ctx.lineTo(px, py); ctx.stroke();
-  };
+  // legs: skin thigh/shin, boots on lower shin + foot
+  for (const [hx0, a, side] of [[x - hw * flip, pose.lL, -flip], [x + hw * flip, pose.lR, flip]]) {
+    const [kx, ky, fx, fy] = jointsOf(hx0, hipY, h * 0.28, h * 0.26, a, side);
+    ctx.fillStyle = skin;
+    capsule(hx0, hipY, kx, ky, h * 0.035, h * 0.024);
+    capsule(kx, ky, fx, fy, h * 0.023, h * 0.015);
+    ctx.fillStyle = outfit;
+    capsule(kx + (fx - kx) * 0.5, ky + (fy - ky) * 0.5, fx, fy, h * 0.02, h * 0.017);
+    capsule(fx, fy, fx + h * 0.036 * flip, fy + h * 0.004, h * 0.016, h * 0.011);
+  }
 
-  // legs
-  seg2(x - hw * flip, hipY, h * 0.26, h * 0.24, pose.lL, -flip);
-  seg2(x + hw * flip, hipY, h * 0.26, h * 0.24, pose.lR, flip);
-  // torso + shoulders
-  ctx.beginPath(); ctx.moveTo(x, hipY); ctx.lineTo(shX, shY); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(shX - sw, shY); ctx.lineTo(shX + sw, shY); ctx.stroke();
-  // skirt hint (filled so it reads as a dress, not crossing lines)
+  // torso: bare midriff + crop top (trapezoid so it drapes, not a blob)
+  ctx.fillStyle = skin;
+  capsule(x, hipY, shX, shY, h * 0.048, h * 0.07);
+  ctx.fillStyle = outfit;
+  const midY = shY + (hipY - shY) * 0.52;
   ctx.beginPath();
-  ctx.moveTo(x, hipY - h * 0.1);
-  ctx.lineTo(x - hw * 2.1, hipY + h * 0.05);
-  ctx.lineTo(x + hw * 2.1, hipY + h * 0.05);
-  ctx.closePath();
-  ctx.save();
-  ctx.globalAlpha *= 0.4;
-  ctx.fillStyle = col;
-  ctx.fill();
-  ctx.restore();
-  ctx.stroke();
+  ctx.moveTo(shX - sw * 0.95, shY - h * 0.012);
+  ctx.lineTo(shX + sw * 0.95, shY - h * 0.012);
+  ctx.lineTo(x + hw * 1.15, midY);
+  ctx.lineTo(x - hw * 1.15, midY);
+  ctx.closePath(); ctx.fill();
+  capsule(shX - sw * 0.85, shY, shX + sw * 0.85, shY, h * 0.026, h * 0.026);
+
+  // skirt with accent waistband
+  ctx.fillStyle = outfit;
+  ctx.beginPath();
+  ctx.moveTo(x - hw * 1.05, hipY - h * 0.05);
+  ctx.lineTo(x + hw * 1.05, hipY - h * 0.05);
+  ctx.lineTo(x + hw * 2.0, hipY + h * 0.075);
+  ctx.lineTo(x - hw * 2.0, hipY + h * 0.075);
+  ctx.closePath(); ctx.fill();
+  if (!sil) {
+    ctx.fillStyle = m.accent;
+    ctx.fillRect(x - hw * 1.08, hipY - h * 0.055, hw * 2.16, h * 0.012);
+  }
+
   // arms
-  seg2(shX - sw * flip, shY, h * 0.16, h * 0.15, pose.aL, -flip);
-  seg2(shX + sw * flip, shY, h * 0.16, h * 0.15, pose.aR, flip);
-  // head + hair
-  ctx.fillStyle = "#140a10";
-  ctx.beginPath(); ctx.arc(headX, headY, headR, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  if (!opts.color) hairMini(m, headX, headY, headR, t, flip);
+  for (const [ax0, a, side] of [[shX - sw * 0.9 * flip, pose.aL, -flip], [shX + sw * 0.9 * flip, pose.aR, flip]]) {
+    const [ex, ey, px, py] = jointsOf(ax0, shY, h * 0.15, h * 0.14, a, side);
+    ctx.fillStyle = skin;
+    capsule(ax0, shY, ex, ey, h * 0.022, h * 0.017);
+    capsule(ex, ey, px, py, h * 0.016, h * 0.011);
+    ctx.beginPath(); ctx.arc(px, py, h * 0.014, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // neck + head
+  ctx.fillStyle = skin;
+  capsule(headX, headY + headR * 0.7, shX, shY + h * 0.01, h * 0.013, h * 0.016);
+  ctx.beginPath(); ctx.arc(headX, headY, headR, 0, Math.PI * 2); ctx.fill();
+  if (!sil && headR >= 9) {
+    // minimal face
+    ctx.fillStyle = "#241318";
+    ctx.beginPath(); ctx.ellipse(headX - headR * 0.34, headY + headR * 0.02, headR * 0.09, headR * 0.06, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(headX + headR * 0.34, headY + headR * 0.02, headR * 0.09, headR * 0.06, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = m.lip;
+    ctx.beginPath(); ctx.ellipse(headX, headY + headR * 0.45, headR * 0.14, headR * 0.07, 0, 0, Math.PI * 2); ctx.fill();
+  }
+  if (!sil) hairMini(m, headX, headY, headR, t, flip);
+  else {
+    ctx.fillStyle = sil;
+    ctx.beginPath(); ctx.arc(headX, headY - headR * 0.08, headR * 1.08, Math.PI * 0.95, Math.PI * 2.05); ctx.fill();
+  }
   ctx.restore();
 }
 
-function hairBack(m, r, t) {
-  ctx.fillStyle = m.accent;
-  const sway = Math.sin(t * 1.6) * r * 0.12;
+function hairBack(m, s, t) {
+  ctx.fillStyle = m.hairC;
+  const sw = Math.sin(t * 1.6) * s * 0.1;
   if (m.hair === "long") {
-    // two side curtains falling past the shoulders, chest left open
-    for (const sd of [-1, 1]) {
-      ctx.beginPath();
-      ctx.moveTo(sd * r * 0.55, -r * 0.85);
-      ctx.quadraticCurveTo(sd * r * 1.45, -r * 0.2, sd * r * 1.35 + sway, r * 2.0);
-      ctx.quadraticCurveTo(sd * r * 1.5 + sway, r * 3.3, sd * r * 0.95 + sway, r * 3.4);
-      ctx.quadraticCurveTo(sd * r * 0.9, r * 1.4, sd * r * 0.78, r * 0.5);
-      ctx.closePath(); ctx.fill();
-    }
-  } else if (m.hair === "pony") {
-    ctx.beginPath(); ctx.arc(0, -r * 1.2, r * 0.36, 0, Math.PI * 2); ctx.fill();
     ctx.beginPath();
-    ctx.moveTo(0, -r * 1.25);
-    ctx.quadraticCurveTo(-r * 2.0 + sway * 2, -r * 0.2, -r * 1.5 + sway * 3, r * 2.4);
-    ctx.quadraticCurveTo(-r * 0.9, r * 0.9, -r * 0.25, -r * 1.0);
+    ctx.moveTo(-s * 0.6, -s * 1.1);
+    ctx.quadraticCurveTo(-s * 1.5, -s * 0.9, -s * 1.55 + sw, s * 0.8);
+    ctx.quadraticCurveTo(-s * 1.6 + sw, s * 2.6, -s * 1.15 + sw, s * 3.7);
+    ctx.lineTo(s * 1.15 + sw, s * 3.7);
+    ctx.quadraticCurveTo(s * 1.6 + sw, s * 2.6, s * 1.55 + sw, s * 0.8);
+    ctx.quadraticCurveTo(s * 1.5, -s * 0.9, s * 0.6, -s * 1.1);
+    ctx.closePath(); ctx.fill();
+  } else if (m.hair === "pony") {
+    ctx.beginPath(); ctx.ellipse(0, -s * 0.3, s * 0.95, s * 0.95, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(0, -s * 1.25, s * 0.33, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 1.3);
+    ctx.quadraticCurveTo(-s * 1.3 + sw * 2, -s * 1.0, -s * 1.55 + sw * 3, s * 0.6);
+    ctx.quadraticCurveTo(-s * 1.7 + sw * 3, s * 2.2, -s * 1.2 + sw * 2, s * 3.2);
+    ctx.quadraticCurveTo(-s * 0.9, s * 1.2, -s * 0.5, -s * 0.9);
     ctx.closePath(); ctx.fill();
   } else if (m.hair === "buns") {
-    ctx.beginPath(); ctx.arc(-r * 0.8, -r * 0.95, r * 0.45, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(r * 0.8, -r * 0.95, r * 0.45, 0, Math.PI * 2); ctx.fill();
-  } else { // bob
-    ctx.beginPath(); ctx.ellipse(0, r * 0.3, r * 1.35, r * 1.25, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0, -s * 0.3, s * 0.95, s * 0.95, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(-s * 0.62, -s * 1.12, s * 0.42, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s * 0.62, -s * 1.12, s * 0.42, 0, Math.PI * 2); ctx.fill();
+  } else { // bob: rounded mass curling in at the jaw
+    ctx.beginPath();
+    ctx.moveTo(-s * 1.28, -s * 0.35);
+    ctx.quadraticCurveTo(-s * 1.4, s * 0.9, -s * 0.9 + sw, s * 1.45);
+    ctx.lineTo(s * 0.9 + sw, s * 1.45);
+    ctx.quadraticCurveTo(s * 1.4, s * 0.9, s * 1.28, -s * 0.35);
+    ctx.quadraticCurveTo(s * 0.7, -s * 1.35, 0, -s * 1.35);
+    ctx.quadraticCurveTo(-s * 0.7, -s * 1.35, -s * 1.28, -s * 0.35);
+    ctx.closePath(); ctx.fill();
   }
 }
 
-// close-up singing shot; x,y = head center, s = head radius, dir = mic hand side
+function blinkAmt(t) {
+  const c = t % 3.6;
+  return c < 0.14 ? 1 - Math.abs(c - 0.07) / 0.07 : 0;
+}
+
+// realistic bust close-up; x,y = face center, s = face half-height, dir = mic hand side
 function drawSinger(m, x, y, s, t, mouth, dir = 1, alpha = 1) {
   ctx.save();
   ctx.globalAlpha = alpha;
-  const bob = Math.sin(t * 1.8) * s * 0.05;
-  ctx.translate(x, y + bob);
-  ctx.rotate(Math.sin(t * 0.9) * 0.05);
-  ctx.lineWidth = Math.max(2, s * 0.09);
+  ctx.translate(x, y + Math.sin(t * 1.8) * s * 0.05);
+  ctx.rotate(Math.sin(t * 0.9) * 0.04);
   ctx.lineCap = "round";
-  ctx.strokeStyle = m.accent;
-  ctx.shadowColor = m.accent;
-  ctx.shadowBlur = 18;
-  ctx.fillStyle = "#150a11";
-  // shoulders / bust
-  ctx.beginPath();
-  ctx.moveTo(-s * 2.5, s * 3.6);
-  ctx.quadraticCurveTo(-s * 2.3, s * 1.7, -s * 0.75, s * 1.35);
-  ctx.lineTo(-s * 0.42, s * 0.9);
-  ctx.lineTo(s * 0.42, s * 0.9);
-  ctx.lineTo(s * 0.75, s * 1.35);
-  ctx.quadraticCurveTo(s * 2.3, s * 1.7, s * 2.5, s * 3.6);
-  ctx.fill(); ctx.stroke();
+
+  // back hair
   hairBack(m, s, t);
-  // head
-  ctx.fillStyle = "#150a11";
-  ctx.beginPath(); ctx.arc(0, 0, s, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
-  // bangs cap
-  ctx.fillStyle = m.accent;
-  ctx.beginPath(); ctx.arc(0, 0, s * 1.03, Math.PI * 1.15, Math.PI * 1.85); ctx.closePath(); ctx.fill();
-  // eyes: closed lashes
-  ctx.shadowBlur = 0;
-  ctx.lineWidth = Math.max(1.5, s * 0.05);
-  ctx.beginPath(); ctx.arc(-s * 0.38, -s * 0.05, s * 0.16, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
-  ctx.beginPath(); ctx.arc(s * 0.38, -s * 0.05, s * 0.16, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
-  // mouth opens with the vocal line
-  ctx.fillStyle = m.accent;
+
+  // neck + chest / shoulders (skin)
+  ctx.fillStyle = m.skin;
   ctx.beginPath();
-  ctx.ellipse(0, s * 0.48, s * 0.16 + mouth * s * 0.06, s * 0.05 + mouth * s * 0.22, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // mic
-  ctx.shadowBlur = 14;
-  ctx.strokeStyle = ICE;
-  ctx.lineWidth = Math.max(2, s * 0.08);
+  ctx.moveTo(-s * 0.3, s * 0.7);
+  ctx.lineTo(-s * 0.3, s * 1.35);
+  ctx.quadraticCurveTo(-s * 0.6, s * 1.55, -s * 1.05, s * 1.75);
+  ctx.quadraticCurveTo(-s * 2.0, s * 2.2, -s * 2.1, s * 3.6);
+  ctx.lineTo(s * 2.1, s * 3.6);
+  ctx.quadraticCurveTo(s * 2.0, s * 2.2, s * 1.05, s * 1.75);
+  ctx.quadraticCurveTo(s * 0.6, s * 1.55, s * 0.3, s * 1.35);
+  ctx.lineTo(s * 0.3, s * 0.7);
+  ctx.closePath(); ctx.fill();
+  // neck shadow under jaw
+  ctx.fillStyle = "rgba(0,0,0,.09)";
+  ctx.beginPath(); ctx.ellipse(0, s * 1.05, s * 0.28, s * 0.1, 0, 0, Math.PI * 2); ctx.fill();
+  // collarbones
+  ctx.strokeStyle = "rgba(0,0,0,.13)";
+  ctx.lineWidth = s * 0.03;
+  for (const sd of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(sd * s * 0.15, s * 1.78);
+    ctx.quadraticCurveTo(sd * s * 0.5, s * 1.85, sd * s * 0.9, s * 1.68);
+    ctx.stroke();
+  }
+  // strapless top with accent trim
+  ctx.fillStyle = OUTFIT;
   ctx.beginPath();
-  ctx.moveTo(dir * s * 0.85, s * 0.9);
-  ctx.lineTo(dir * s * 1.5, s * 2.1);
+  ctx.moveTo(-s * 2.1, s * 3.6);
+  ctx.lineTo(-s * 2.02, s * 2.55);
+  ctx.quadraticCurveTo(-s * 1.1, s * 2.25, 0, s * 2.55);
+  ctx.quadraticCurveTo(s * 1.1, s * 2.25, s * 2.02, s * 2.55);
+  ctx.lineTo(s * 2.1, s * 3.6);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = m.accent;
+  ctx.lineWidth = s * 0.05;
+  ctx.beginPath();
+  ctx.moveTo(-s * 2.02, s * 2.55);
+  ctx.quadraticCurveTo(-s * 1.1, s * 2.25, 0, s * 2.55);
+  ctx.quadraticCurveTo(s * 1.1, s * 2.25, s * 2.02, s * 2.55);
   ctx.stroke();
-  ctx.fillStyle = FLASH;
-  ctx.beginPath(); ctx.arc(dir * s * 0.78, s * 0.78, s * 0.24, 0, Math.PI * 2); ctx.fill();
+
+  // ears + earrings (only for updo styles; long/bob hair covers them)
+  if (m.hair === "pony" || m.hair === "buns") {
+    ctx.fillStyle = m.skin;
+    ctx.beginPath(); ctx.arc(-s * 0.8, s * 0.05, s * 0.11, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s * 0.8, s * 0.05, s * 0.11, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = m.accent;
+    ctx.shadowColor = m.accent;
+    ctx.shadowBlur = 8;
+    ctx.beginPath(); ctx.arc(-s * 0.82, s * 0.24, s * 0.045, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(s * 0.82, s * 0.24, s * 0.045, 0, Math.PI * 2); ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // face: skull + jaw to chin
+  ctx.fillStyle = m.skin;
+  ctx.beginPath(); ctx.ellipse(0, -s * 0.15, s * 0.82, s * 0.88, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.78, s * 0.1);
+  ctx.bezierCurveTo(-s * 0.72, s * 0.5, -s * 0.4, s * 0.84, 0, s * 0.9);
+  ctx.bezierCurveTo(s * 0.4, s * 0.84, s * 0.72, s * 0.5, s * 0.78, s * 0.1);
+  ctx.closePath(); ctx.fill();
+
+  // eyeshadow + blush
+  ctx.fillStyle = m.accent;
+  ctx.globalAlpha = alpha * 0.16;
+  for (const sd of [-1, 1]) {
+    ctx.beginPath(); ctx.ellipse(sd * s * 0.36, -s * 0.2, s * 0.19, s * 0.09, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(sd * s * 0.5, s * 0.32, s * 0.17, s * 0.09, sd * -0.2, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.globalAlpha = alpha;
+
+  // brows
+  ctx.strokeStyle = m.brow;
+  ctx.lineWidth = s * 0.045;
+  for (const sd of [-1, 1]) {
+    ctx.beginPath();
+    ctx.moveTo(sd * s * 0.18, -s * 0.32);
+    ctx.quadraticCurveTo(sd * s * 0.38, -s * 0.42, sd * s * 0.55, -s * 0.33);
+    ctx.stroke();
+  }
+
+  // eyes (blinking)
+  const bl = blinkAmt(t);
+  const ehh = s * 0.085 * (1 - bl * 0.95);
+  for (const sd of [-1, 1]) {
+    const ex = sd * s * 0.36, ey = -s * 0.12, ew = s * 0.17;
+    ctx.fillStyle = "#f7ecee";
+    ctx.beginPath();
+    ctx.moveTo(ex - ew, ey);
+    ctx.quadraticCurveTo(ex, ey - ehh * 2, ex + ew, ey);
+    ctx.quadraticCurveTo(ex, ey + ehh * 1.6, ex - ew, ey);
+    ctx.closePath(); ctx.fill();
+    // iris + pupil + glint
+    ctx.fillStyle = "#3a2028";
+    ctx.beginPath(); ctx.ellipse(ex, ey, s * 0.075, s * 0.075 * (1 - bl * 0.9), 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#1c0d12";
+    ctx.beginPath(); ctx.ellipse(ex, ey, s * 0.035, s * 0.035 * (1 - bl * 0.9), 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = FLASH;
+    ctx.beginPath(); ctx.arc(ex + s * 0.025, ey - s * 0.02, s * 0.016, 0, Math.PI * 2); ctx.fill();
+    // eyeliner + outer lash
+    ctx.strokeStyle = "#241016";
+    ctx.lineWidth = s * 0.035;
+    ctx.beginPath();
+    ctx.moveTo(ex - ew, ey);
+    ctx.quadraticCurveTo(ex, ey - ehh * 2, ex + ew, ey);
+    ctx.lineTo(ex + ew + sd * s * 0.05, ey - s * 0.04);
+    ctx.stroke();
+  }
+
+  // nose hint
+  ctx.strokeStyle = "rgba(0,0,0,.16)";
+  ctx.lineWidth = s * 0.025;
+  ctx.beginPath();
+  ctx.moveTo(s * 0.02, s * 0.12);
+  ctx.quadraticCurveTo(s * 0.07, s * 0.3, s * 0.03, s * 0.37);
+  ctx.stroke();
+
+  // mouth: interior + teeth when open, then lips
+  const mo = mouth;
+  if (mo > 0.04) {
+    const ry = s * (0.02 + mo * 0.11);
+    const cy = s * 0.66 + mo * s * 0.1;
+    ctx.fillStyle = "#57121f";
+    ctx.beginPath(); ctx.ellipse(0, cy, s * 0.17, ry, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = "#f8f3f0";
+    ctx.fillRect(-s * 0.11, cy - ry, s * 0.22, Math.min(ry * 0.8, s * 0.04));
+  }
+  ctx.fillStyle = m.lip;
+  ctx.beginPath();                       // upper lip with cupid's bow
+  ctx.moveTo(-s * 0.22, s * 0.6);
+  ctx.quadraticCurveTo(-s * 0.1, s * 0.545, -s * 0.035, s * 0.575);
+  ctx.quadraticCurveTo(0, s * 0.555, s * 0.035, s * 0.575);
+  ctx.quadraticCurveTo(s * 0.1, s * 0.545, s * 0.22, s * 0.6);
+  ctx.quadraticCurveTo(0, s * 0.645, -s * 0.22, s * 0.6);
+  ctx.closePath(); ctx.fill();
+  ctx.beginPath();                       // lower lip drops as the mouth opens
+  ctx.ellipse(0, s * 0.68 + mo * s * 0.2, s * 0.165, s * 0.062, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = "rgba(255,245,249,.35)";
+  ctx.beginPath(); ctx.ellipse(0, s * 0.665 + mo * s * 0.2, s * 0.07, s * 0.02, 0, 0, Math.PI * 2); ctx.fill();
+
+  // front hair: side-swept bangs + sheen
+  ctx.fillStyle = m.hairC;
+  ctx.beginPath(); ctx.arc(0, -s * 0.45, s * 0.88, Math.PI * 1.03, Math.PI * 1.97); ctx.closePath(); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-s * 0.92, s * 0.1);
+  ctx.quadraticCurveTo(-s * 0.95, -s * 0.85, -s * 0.1, -s * 1.12);
+  ctx.quadraticCurveTo(-s * 0.5, -s * 0.75, -s * 0.62, -s * 0.15);
+  ctx.quadraticCurveTo(-s * 0.7, s * 0.05, -s * 0.92, s * 0.1);
+  ctx.closePath(); ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(s * 0.92, s * 0.05);
+  ctx.quadraticCurveTo(s * 0.95, -s * 0.8, s * 0.15, -s * 1.1);
+  ctx.quadraticCurveTo(s * 0.55, -s * 0.7, s * 0.68, -s * 0.2);
+  ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = m.hairHi;
+  ctx.globalAlpha = alpha * 0.55;
+  ctx.lineWidth = s * 0.045;
+  ctx.beginPath(); ctx.arc(0, -s * 0.2, s * 0.78, Math.PI * 1.15, Math.PI * 1.5); ctx.stroke();
+  ctx.beginPath(); ctx.arc(0, -s * 0.2, s * 0.62, Math.PI * 1.55, Math.PI * 1.8); ctx.stroke();
+  ctx.globalAlpha = alpha;
+
+  // pink rim light along the far side
+  ctx.strokeStyle = "rgba(255,45,120,.5)";
+  ctx.lineWidth = s * 0.05;
+  ctx.beginPath();
+  if (dir > 0) ctx.arc(0, -s * 0.08, s * 0.87, -0.5, 0.55);
+  else ctx.arc(0, -s * 0.08, s * 0.87, Math.PI - 0.55, Math.PI + 0.5);
+  ctx.stroke();
+
+  // mic: handle, head, hand with fingers
+  ctx.fillStyle = "#241a1f";
+  capsule(dir * s * 0.85, s * 1.15, dir * s * 1.55, s * 2.45, s * 0.09, s * 0.11);
+  ctx.fillStyle = m.accent;
+  capsule(dir * s * 0.92, s * 1.28, dir * s * 1.0, s * 1.43, s * 0.095, s * 0.095);
+  const mg = ctx.createRadialGradient(dir * s * 0.7, s * 0.9, s * 0.04, dir * s * 0.78, s * 1.0, s * 0.3);
+  mg.addColorStop(0, "#e6dde0");
+  mg.addColorStop(1, "#8d8188");
+  ctx.fillStyle = mg;
+  ctx.beginPath(); ctx.arc(dir * s * 0.78, s * 1.0, s * 0.28, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = "rgba(0,0,0,.22)";
+  ctx.lineWidth = s * 0.02;
+  ctx.beginPath(); ctx.arc(dir * s * 0.78, s * 1.0, s * 0.19, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(dir * s * 0.78, s * 1.0, s * 0.1, 0, Math.PI * 2); ctx.stroke();
+  // hand wrapping the handle
+  ctx.save();
+  ctx.translate(dir * s * 1.13, s * 1.68);
+  ctx.rotate(Math.atan2(1.3, dir * 0.7));
+  ctx.fillStyle = m.skin;
+  ctx.beginPath(); ctx.ellipse(0, 0, s * 0.23, s * 0.14, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = m.line;
+  ctx.lineWidth = s * 0.018;
+  for (const fx of [-0.08, 0, 0.08]) {
+    ctx.beginPath(); ctx.moveTo(fx * s, -s * 0.12); ctx.lineTo(fx * s, s * 0.12); ctx.stroke();
+  }
+  ctx.restore();
+
   ctx.restore();
 }
 
