@@ -26,6 +26,8 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>近くのトイレを検索し、そこまでの徒歩ルートを案内するために現在地を利用します。</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>近くのトイレを検索し、そこまでの徒歩ルートを案内するために現在地を利用します。</string>
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>ja</string>
@@ -42,8 +44,6 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>

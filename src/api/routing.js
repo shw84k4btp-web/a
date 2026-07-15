@@ -2,9 +2,11 @@
 // 実際の道路に沿ったルート形状 + 曲がり角ごとの案内 (steps) を取得する。
 // 失敗した場合は直線ルート + 距離ベースの所要時間推定にフォールバックする。
 
+// router.project-osrm.org は car プロファイルしか提供せず (URLの/footは無視される)、
+// 一方通行・車道基準の経路を「徒歩ルート」として返してしまうため使わない。
+// foot 対応の FOSSGIS サーバーが落ちている場合は直線フォールバックに任せる。
 const OSRM_FOOT_ENDPOINTS = [
   'https://routing.openstreetmap.de/routed-foot/route/v1/foot',
-  'https://router.project-osrm.org/route/v1/foot',
 ];
 
 const WALK_SPEED_MPS = 1.33; // 約 80m/分 (不動産表示の徒歩速度)

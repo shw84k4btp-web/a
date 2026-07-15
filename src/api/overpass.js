@@ -8,17 +8,20 @@ const OVERPASS_ENDPOINTS = [
   'https://overpass.private.coffee/api/interpreter',
 ];
 
-const FETCH_TIMEOUT_MS = 20000;
+// サーバー側 [timeout:15] より少し長く待つ (サーバー成功をクライアントが先に捨てない)
+const FETCH_TIMEOUT_MS = 18000;
 
 function buildQuery(lat, lng, radius) {
+  // 注意: "out center tags;" は node の座標を出力しないため使わないこと
+  // (tags verbosity は id+タグのみ。node が全て落ちて実質ヒット0になる)
   return `
-[out:json][timeout:25];
+[out:json][timeout:15];
 (
   node["amenity"="toilets"](around:${radius},${lat},${lng});
   way["amenity"="toilets"](around:${radius},${lat},${lng});
   relation["amenity"="toilets"](around:${radius},${lat},${lng});
 );
-out center tags;
+out center;
 `.trim();
 }
 
@@ -57,6 +60,12 @@ export async function searchToilets(lat, lng, radius) {
         continue;
       }
       const data = await res.json();
+      // 混雑時の Overpass はHTTP 200のまま remark にタイムアウトを入れて
+      // 空の elements を返すことがある。0件と誤認せず次のミラーへ
+      if (data.remark && !(data.elements || []).length) {
+        lastError = new Error(`Overpass remark: ${data.remark}`);
+        continue;
+      }
       return (data.elements || [])
         .map((el) => {
           // way / relation は中心座標 (center) を使う

@@ -32,7 +32,10 @@ function formatDistance(m) {
 
 function formatMinutes(sec) {
   const min = Math.max(1, Math.round(sec / 60));
-  return min >= 60 ? `${Math.floor(min / 60)}時間${min % 60}分` : `${min}分`;
+  if (min < 60) return `${min}分`;
+  const h = Math.floor(min / 60);
+  const m = min % 60;
+  return m ? `${h}時間${m}分` : `${h}時間`;
 }
 
 // 現在時刻 + 所要時間から到着時刻 "HH:MM" を計算
@@ -64,7 +67,9 @@ export default function App() {
   const markersRef = useRef(null);
   const userMarkerRef = useRef(null);
   const routeLayerRef = useRef(null); // ルート線 (縁取り + 本線)
+  // 遅延して届いた古い応答が UI を上書きしないよう、リクエストに世代番号を振る
   const routeSeqRef = useRef(0);
+  const searchSeqRef = useRef(0);
 
   const [origin, setOrigin] = useState(null); // {lat, lng, label}
   const [locationDenied, setLocationDenied] = useState(false);
@@ -115,6 +120,10 @@ export default function App() {
 
   // ---- 出発地点が決まったら地図を移動してトイレを検索 ----
   const runSearch = useCallback(async (o) => {
+    // 進行中の検索・ルート取得を世代番号で無効化してから新しい検索を始める
+    const seq = ++searchSeqRef.current;
+    routeSeqRef.current++;
+
     const map = mapRef.current;
     map.setView([o.lat, o.lng], 16);
 
@@ -131,6 +140,7 @@ export default function App() {
       try {
         found = await searchToilets(o.lat, o.lng, radius);
       } catch {
+        if (seq !== searchSeqRef.current) return;
         setStatus({
           type: 'error',
           text: 'トイレ情報の取得に失敗しました。通信状況を確認してください。',
@@ -138,6 +148,7 @@ export default function App() {
         });
         return;
       }
+      if (seq !== searchSeqRef.current) return; // 新しい検索が始まっていたら破棄
       if (found.length > 0) {
         // 近い順に並べて直線距離を付与 (一覧表示用)
         const withDist = found
@@ -167,7 +178,9 @@ export default function App() {
       setSheetRatio(SHEET_SNAPS[1]);
       const seq = ++routeSeqRef.current;
       const r = await getWalkingRoute(origin, toilet); // 内部でフォールバックするため throw しない
-      if (seq !== routeSeqRef.current) return; // 古い結果は捨てる
+      // 別のマーカー選択・✕での選択解除・再検索が起きていたら破棄
+      // (これがないと閉じた後に幽霊ルートが描画され fitBounds で地図が飛ぶ)
+      if (seq !== routeSeqRef.current) return;
       setRoute(r);
       setRouteLoading(false);
 
@@ -208,6 +221,14 @@ export default function App() {
     });
   }, [toilets, selected, selectToilet]);
 
+  // ---- ルート案内を閉じる (進行中のルート取得も世代番号で無効化) ----
+  const closeRoute = useCallback(() => {
+    routeSeqRef.current++;
+    setSelected(null);
+    setRoute(null);
+    setRouteLoading(false);
+  }, []);
+
   // ---- 選択解除時にルート線を消す ----
   useEffect(() => {
     if (!selected && routeLayerRef.current) {
@@ -215,6 +236,14 @@ export default function App() {
       routeLayerRef.current = null;
     }
   }, [selected]);
+
+  // ---- 到着時刻が古くならないよう、ルート表示中は30秒ごとに再計算 ----
+  const [, setClockTick] = useState(0);
+  useEffect(() => {
+    if (!route) return;
+    const id = setInterval(() => setClockTick((t) => t + 1), 30000);
+    return () => clearInterval(id);
+  }, [route]);
 
   // ---- ボトムシートのドラッグ ----
   function onSheetPointerDown(e) {
@@ -251,7 +280,7 @@ export default function App() {
       if (!result) {
         setStatus({ type: 'error', text: `「${address}」が見つかりませんでした。` });
       } else {
-        setLocationDenied(false);
+        // locationDenied は維持する (別の住所で再検索する入口を残すため)
         setOrigin({ lat: result.lat, lng: result.lng, label: result.label.split(',')[0] });
       }
     } catch {
@@ -353,7 +382,8 @@ export default function App() {
                       )}
                     </span>
                     <span className="toilet-row-dist">
-                      <strong>{formatMinutes(t.crowDist / WALK_SPEED_MPS)}</strong>
+                      {/* 直線距離ベースの目安なので「約」を付ける (実ルートは選択後に表示) */}
+                      <strong>約{formatMinutes(t.crowDist / WALK_SPEED_MPS)}</strong>
                       <span>{formatDistance(t.crowDist)}</span>
                     </span>
                   </button>
@@ -370,7 +400,7 @@ export default function App() {
                     <div className="route-tags">{toiletDetails(selected).join(' · ')}</div>
                   )}
                 </div>
-                <button className="icon-btn" onClick={() => setSelected(null)} aria-label="閉じる">
+                <button className="icon-btn" onClick={closeRoute} aria-label="閉じる">
                   ✕
                 </button>
               </div>

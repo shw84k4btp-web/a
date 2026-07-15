@@ -2,11 +2,10 @@
 <html lang="ja">
   <head>
     <meta charset="UTF-8" />
-    <!-- viewport-fit=cover: iPhone のノッチ・セーフエリアまで描画してアプリらしく見せる -->
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
-    />
+    <!-- viewport-fit=cover: iPhone のノッチ・セーフエリアまで描画してアプリらしく見せる。
+         user-scalable=no はアクセシビリティ上の問題があるため使わない
+         (入力フォーカス時の自動ズームはフォント16pxで抑止済み) -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="現在地から最寄りのトイレを検索し、徒歩ルートを案内するアプリ" />
     <meta name="theme-color" content="#1e40af" />
     <!-- iOS ホーム画面アプリ (standalone) 用設定 -->
