@@ -340,7 +340,9 @@ export default function App() {
     const destMarker = L.marker([d.lat, d.lng], { icon: destIcon, zIndexOffset: 900 });
     const waypointMarkers = result.toiletsUsed.map((t, i) =>
       L.marker([t.lat, t.lng], {
-        icon: waypointIcon(i + 1, result.legs[i]?.exceedsThreshold),
+        // legs[i] は「このトイレに到着する区間」なので、「この先の区間が1分超過」の
+        // 警告色には次の区間 legs[i+1] を参照する
+        icon: waypointIcon(i + 1, result.legs[i + 1]?.exceedsThreshold),
         zIndexOffset: 400,
       })
     );

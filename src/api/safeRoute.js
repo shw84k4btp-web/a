@@ -66,7 +66,9 @@ function corridorBBox(a, b, halfWidthM) {
 
 // 直進困難な区間 (ギャップ) を、狭い範囲での再検索で1件だけ補おうとする。
 // 失敗しても null を返すだけで例外は投げない (ギャップとして扱われる)。
-async function fillGap(fromPoint, toPoint) {
+// excludeIds: 既にチェーンに入っているトイレのID群。bbox はギャップ両端の
+// 既存トイレ自身も含む矩形なので、除外しないと同一トイレを重複挿入してしまう。
+async function fillGap(fromPoint, toPoint, excludeIds) {
   const bbox = corridorBBox(fromPoint, toPoint, GAP_FILL_HALF_WIDTH_M);
   let candidates;
   try {
@@ -74,15 +76,17 @@ async function fillGap(fromPoint, toPoint) {
   } catch {
     return null;
   }
-  if (!candidates.length) return null;
+  const fresh = candidates.filter((c) => !excludeIds.has(c.id));
+  if (!fresh.length) return null;
   const mid = { lat: (fromPoint.lat + toPoint.lat) / 2, lng: (fromPoint.lng + toPoint.lng) / 2 };
-  candidates.sort((a, b) => haversine(mid, a) - haversine(mid, b));
-  return candidates[0];
+  fresh.sort((a, b) => haversine(mid, a) - haversine(mid, b));
+  return fresh[0];
 }
 
 // 貪欲法: 「まだ MAX_STRAIGHT_LEG_M 以内に置ける、最も進捗率 (t) の大きい候補」を
-// 選び続ける。区間ごとの最大ギャップを一定に抑えつつ経由地点数を最小化する
-// (区間被覆問題の標準的な貪欲法で、この条件下では経由地点数が最小になることが知られている)。
+// 選び続ける。区間ごとの最大ギャップを一定に抑えつつ経由地点数を少なく保つ
+// (1次元の区間被覆の貪欲法の考え方を2D距離判定に適用した近似。
+//  startIdx が毎回単調増加するため停止性は保証される)。
 function buildGreedyChain(sortedCandidates, originFlat, destFlat) {
   const chain = [];
   let current = originFlat;
@@ -198,19 +202,26 @@ export async function buildSafeRoute(origin, destination) {
   // ギャップ区間を1回だけ補完してみる (再帰させず1パスに限定して挙動を予測可能にする)
   const gapIndices = legs.reduce((acc, l, i) => (l.exceedsThreshold ? [...acc, i] : acc), []);
   if (gapIndices.length > 0 && chain.length < MAX_WAYPOINTS && !routeResult.approximate) {
+    // 既にチェーンに入っているトイレを補完候補から除外する (重複挿入防止)
+    const usedIds = new Set(chain.map((t) => t.id));
     const fillResults = await Promise.all(
-      gapIndices.map((i) => fillGap(waypoints[i], waypoints[i + 1]))
+      gapIndices.map((i) => fillGap(waypoints[i], waypoints[i + 1], usedIds))
     );
     const newWaypoints = [...waypoints];
-    let insertedAny = false;
+    let insertedCount = 0;
+    const insertedIds = new Set();
     // 後ろの区間から挿入するとインデックスがずれない
     for (let k = gapIndices.length - 1; k >= 0; k--) {
       const toilet = fillResults[k];
       if (!toilet) continue;
+      // 複数ギャップの補完が同じトイレを返した場合の重複と、経由地点数の上限を守る
+      if (insertedIds.has(toilet.id)) continue;
+      if (chain.length + insertedCount >= MAX_WAYPOINTS) break;
       newWaypoints.splice(gapIndices[k] + 1, 0, toilet);
-      insertedAny = true;
+      insertedIds.add(toilet.id);
+      insertedCount++;
     }
-    if (insertedAny) {
+    if (insertedCount > 0) {
       const retryResult = await getDrivingRoute(newWaypoints);
       if (!retryResult.approximate) {
         waypoints = newWaypoints;
