@@ -19,66 +19,79 @@ body {
   overscroll-behavior: none;
   -webkit-user-select: none;
   user-select: none;
+  color: #1c1c1e;
 }
 
 .app {
   position: relative;
   height: 100%;
   height: 100dvh; /* iOS Safari のアドレスバーで 100vh がずれる問題への対策 */
-  display: flex;
-  flex-direction: column;
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px 14px;
-  /* iPhone のノッチ/Dynamic Island 領域までヘッダー色を伸ばす */
-  padding-top: calc(10px + env(safe-area-inset-top));
-  background: #1e40af;
-  color: #fff;
-  z-index: 1001;
-}
-
-.header h1 {
-  font-size: 17px;
-  font-weight: 700;
+  overflow: hidden;
 }
 
 .map {
-  flex: 1;
-  min-height: 0;
+  position: absolute;
+  inset: 0;
 }
 
-/* ---- ステータスバー ---- */
-.status {
+/* ================= リキッドグラス共通 ================= */
+.glass {
+  background: rgba(255, 255, 255, 0.62);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+}
+
+/* ================= 上部バー ================= */
+.topbar {
   position: absolute;
-  top: calc(56px + env(safe-area-inset-top));
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 12px;
+  right: 12px;
+  z-index: 1001;
   display: flex;
   align-items: center;
-  gap: 8px;
-  max-width: min(92vw, 560px);
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 13px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
-  background: #fff;
-  color: #1f2937;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 22px;
 }
 
-.status-loading { background: #eff6ff; color: #1e40af; }
-.status-error { background: #fef2f2; color: #b91c1c; }
-.status-warn { background: #fffbeb; color: #92400e; }
-.status-ok { background: #f0fdf4; color: #166534; }
+.topbar-icon {
+  font-size: 26px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+}
+
+.topbar-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.topbar-title {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.topbar-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #3c3c43;
+  overflow: hidden;
+}
+
+.status-error { color: #c62828; }
+.status-warn { color: #9a6b00; }
+.status-ok { color: #1b7f3b; }
+.status-loading { color: #1a56c4; }
 
 .spinner {
-  width: 14px;
-  height: 14px;
+  width: 13px;
+  height: 13px;
   flex-shrink: 0;
   border: 2px solid currentColor;
   border-top-color: transparent;
@@ -90,163 +103,368 @@ body {
   to { transform: rotate(360deg); }
 }
 
-/* ---- ボタン ---- */
-.btn-small {
-  flex-shrink: 0;
-  min-height: 32px;
-  padding: 6px 14px;
+.link-btn {
   border: none;
-  border-radius: 999px;
-  background: #2563eb;
-  color: #fff;
+  background: none;
+  color: #1a73e8;
   font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.icon-btn {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(120, 120, 128, 0.14);
+  color: #1c1c1e;
+  font-size: 17px;
   cursor: pointer;
 }
 
-.btn-small:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
+.icon-btn:disabled { opacity: 0.4; }
 
-/* ---- 住所入力フォーム ---- */
+/* ================= 住所入力 ================= */
 .address-form {
   position: absolute;
-  top: calc(104px + env(safe-area-inset-top));
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
+  top: calc(84px + env(safe-area-inset-top));
+  left: 16px;
+  right: 16px;
+  z-index: 1001;
   display: flex;
-  gap: 6px;
-  width: min(92vw, 420px);
+  gap: 8px;
+  padding: 8px;
+  border-radius: 18px;
 }
 
 .address-form input {
   flex: 1;
   min-width: 0;
   padding: 10px 14px;
-  border: 1px solid #d1d5db;
-  border-radius: 10px;
+  border: none;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.8);
   font-size: 16px; /* 16px 未満だと iOS Safari がフォーカス時に自動ズームする */
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
   -webkit-user-select: text;
   user-select: text;
 }
 
+.address-form input:focus { outline: 2px solid #1a73e8; }
+
 .address-form button {
-  padding: 10px 16px;
+  padding: 10px 18px;
   border: none;
-  border-radius: 10px;
-  background: #2563eb;
+  border-radius: 12px;
+  background: #1a73e8;
   color: #fff;
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
 }
 
-.address-form button:disabled {
-  opacity: 0.5;
+.address-form button:disabled { opacity: 0.5; }
+
+/* ================= 現在地ボタン ================= */
+.fab {
+  position: absolute;
+  right: 16px;
+  z-index: 1001;
+  width: 52px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  color: #1a73e8;
+  font-size: 22px;
+  cursor: pointer;
+  transition: bottom 0.25s cubic-bezier(0.25, 1, 0.4, 1);
 }
 
-/* ---- マーカー ---- */
+/* ================= マーカー ================= */
 .user-marker-dot {
+  position: relative;
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #2563eb;
+  background: #1a73e8;
   border: 3px solid #fff;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+}
+
+.user-marker-pulse {
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  background: rgba(26, 115, 232, 0.2);
+  animation: pulse 2.4s ease-out infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.5); opacity: 1; }
+  100% { transform: scale(1.3); opacity: 0; }
 }
 
 .toilet-marker-pin {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 36px;
+  height: 36px;
   font-size: 18px;
-  background: #fff;
-  border: 2px solid #2563eb;
-  border-radius: 50% 50% 50% 4px;
+  background: rgba(255, 255, 255, 0.85);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 2px solid #1a73e8;
+  border-radius: 50% 50% 50% 6px;
   transform: rotate(-45deg);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s;
 }
 
 .toilet-marker-pin > * { transform: rotate(45deg); }
 
 .toilet-marker-pin.selected {
-  background: #2563eb;
-  border-color: #1e40af;
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.35);
+  background: #1a73e8;
+  border-color: #fff;
+  transform: rotate(-45deg) scale(1.18);
+  box-shadow: 0 0 0 5px rgba(26, 115, 232, 0.3), 0 3px 10px rgba(0, 0, 0, 0.3);
 }
 
-/* ---- ルートパネル ---- */
-.route-panel {
+/* ================= ボトムシート ================= */
+.sheet {
   position: absolute;
-  bottom: calc(16px + env(safe-area-inset-bottom));
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 1000;
-  width: min(92vw, 440px);
-  padding: 14px 16px;
-  background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-}
-
-.route-panel-head {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1002;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 15px;
+  flex-direction: column;
+  border-radius: 26px 26px 0 0;
+  border-bottom: none;
+  padding-bottom: env(safe-area-inset-bottom);
+  transition: height 0.25s cubic-bezier(0.25, 1, 0.4, 1);
+  will-change: height;
 }
 
-.btn-close {
-  border: none;
-  background: none;
+.sheet.dragging { transition: none; }
+
+.sheet-handle-area {
+  flex-shrink: 0;
+  padding: 10px 0 6px;
+  cursor: grab;
+  touch-action: none; /* ドラッグ中に地図やスクロールへジェスチャを取られない */
+}
+
+.sheet-handle {
+  width: 42px;
+  height: 5px;
+  margin: 0 auto;
+  border-radius: 3px;
+  background: rgba(60, 60, 67, 0.3);
+}
+
+.sheet-title {
+  flex-shrink: 0;
+  padding: 2px 20px 10px;
   font-size: 16px;
-  color: #6b7280;
-  cursor: pointer;
-  padding: 2px 6px;
+  font-weight: 700;
 }
 
-.toilet-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
+.sheet-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 0 12px 12px;
 }
 
-.tag {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: #f3f4f6;
-  color: #374151;
-  font-size: 12px;
-}
-
-.route-info {
+/* ---- 一覧の行 ---- */
+.toilet-row {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 12px;
-  margin-top: 10px;
-  font-size: 14px;
-  color: #1f2937;
-}
-
-.route-stat {
-  font-weight: 700;
-  font-size: 17px;
-}
-
-.route-note {
   width: 100%;
-  font-size: 12px;
-  color: #92400e;
+  padding: 12px 10px;
+  border: none;
+  border-radius: 16px;
+  background: none;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
 }
 
-/* Leaflet のズームコントロールをホームバーのセーフエリアより上に置く */
-.leaflet-bottom {
-  bottom: env(safe-area-inset-bottom);
+.toilet-row:active { background: rgba(120, 120, 128, 0.16); }
+
+.toilet-row + .toilet-row { border-top: 0.5px solid rgba(60, 60, 67, 0.15); }
+
+.toilet-row-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(26, 115, 232, 0.12);
+  font-size: 19px;
+}
+
+.toilet-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.toilet-row-name {
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toilet-row-tags {
+  font-size: 12px;
+  color: #6d6d72;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.toilet-row-dist {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.toilet-row-dist strong {
+  font-size: 15px;
+  color: #1a73e8;
+}
+
+.toilet-row-dist span:last-child {
+  font-size: 12px;
+  color: #6d6d72;
+}
+
+/* ---- ルート案内 ---- */
+.route-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 0 20px 8px;
+}
+
+.route-head-main { flex: 1; min-width: 0; }
+
+.route-dest {
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.route-tags {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #6d6d72;
+}
+
+.route-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 14px;
+  color: #1a56c4;
+}
+
+.route-summary {
+  flex-shrink: 0;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 4px 20px 10px;
+}
+
+.route-time {
+  font-size: 26px;
+  font-weight: 800;
+  color: #1b7f3b;
+  letter-spacing: -0.01em;
+}
+
+.route-sub {
+  font-size: 14px;
+  color: #3c3c43;
+}
+
+.route-sub strong { color: #1c1c1e; }
+
+.route-warn {
+  margin: 0 20px 8px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  background: rgba(255, 204, 0, 0.25);
+  font-size: 12px;
+  color: #7a5200;
+}
+
+/* ---- ターンバイターン ---- */
+.steps { padding: 0 8px 12px; }
+
+.step-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 12px;
+}
+
+.step-row + .step-row { border-top: 0.5px solid rgba(60, 60, 67, 0.15); }
+
+.step-arrow {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(26, 115, 232, 0.12);
+  color: #1a56c4;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.step-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+}
+
+.step-dist {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #6d6d72;
+}
+
+/* Leaflet の帰属表記をグラスに馴染ませる */
+.leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.5) !important;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  font-size: 10px !important;
 }
