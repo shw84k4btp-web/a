@@ -3,6 +3,21 @@
 現在地から最寄りのトイレを検索し、そこまでの徒歩ルートを案内するWebアプリです。
 **PWA対応**しているため、iPhoneのホーム画面に追加すると全画面のネイティブアプリのように使えます。
 
+## 🚀 いちばん簡単な試し方 (コピペでOK)
+
+リポジトリ直下の **`toilet-finder.html`** は、アプリ全体 (JS/CSS込み) を1ファイルにまとめたスタンドアロン版です。
+
+1. PCで [codepen.io/pen](https://codepen.io/pen) を開く
+2. `toilet-finder.html` の中身を **全部コピーして HTML パネルに貼り付け**
+3. 右上の **Save** → 画面下の **Live View / Full Page View** のURLをiPhoneのSafariで開く
+4. 位置情報の許可を求められたら「許可」
+
+または [Netlify Drop](https://app.netlify.com/drop) に `toilet-finder.html` をドラッグ&ドロップすると、数秒でHTTPSのURLが発行されます (`index.html` にリネームしておくとトップで開けます)。
+
+> Geolocation は HTTPS でしか動かないため、ファイルを直接開くのではなく上記のようなHTTPSホスティング経由で開いてください。位置情報が使えない場合でも住所検索で利用できます。
+
+スタンドアロン版の再生成: `npm run build:single`
+
 ## 📱 iPhoneにインストールする
 
 1. このアプリをHTTPSでホスティングした上で、**Safari** でURLを開く
