@@ -1,0 +1,9 @@
+{
+  "appId": "com.toiletfinder.app",
+  "appName": "トイレファインダー",
+  "webDir": "dist",
+  "ios": {
+    "contentInset": "never",
+    "backgroundColor": "#ffffff"
+  }
+}

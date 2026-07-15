@@ -50,9 +50,34 @@
 - **Overpass API の遅延・失敗**: ローディング表示を出しつつ、複数のミラーサーバー (overpass-api.de / kumi.systems / private.coffee) へ順にフォールバック。全滅した場合は「再試行」ボタンを表示
 - **ルート検索の失敗**: OSRM の複数エンドポイントを試し、すべて失敗した場合は直線ルート(点線表示)と直線距離ベースの概算時間にフォールバック
 
+## 🍎 iOSネイティブアプリ (Capacitor)
+
+`ios/` ディレクトリに Xcode プロジェクトを同梱しています。WebアプリをそのままWKWebViewで包み、位置情報はネイティブの許可ダイアログ(`NSLocationWhenInUseUsageDescription` 設定済み)経由で取得します。
+
+### ビルド手順 (macOS + Xcode が必要)
+
+```bash
+npm install
+npm run build          # Webアセットを dist/ に生成
+npx cap sync ios       # dist/ を iOSプロジェクトへコピー & プラグイン同期
+npx cap open ios       # Xcode でプロジェクトを開く
+```
+
+Xcode側では:
+1. `App` ターゲットの **Signing & Capabilities** で自分の Apple ID (Team) を選択
+2. 実機またはシミュレータを選んで **Run (⌘R)**
+3. 実機配布は Archive → TestFlight / App Store Connect へ
+
+- Bundle ID: `com.toiletfinder.app`(App Store公開時は自分のものに変更)
+- アプリアイコン(1024px)設定済み / 日本語ローカライズ設定済み
+- Capacitor 8 (Swift Package Manager) のため CocoaPods は不要です
+
+Macがない場合も、PWA版(ホーム画面に追加)なら同じ機能をそのまま使えます。
+
 ## 技術スタック
 
 - React 18 + Vite
+- Capacitor 8 (iOSネイティブ化 + Geolocationプラグイン)
 - Leaflet.js (地図描画)
 - OpenStreetMap (地図タイル)
 - Overpass API (トイレ位置情報)

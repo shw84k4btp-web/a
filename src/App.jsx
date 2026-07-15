@@ -3,6 +3,7 @@ import L from 'leaflet';
 import { searchToilets } from './api/overpass.js';
 import { getWalkingRoute, haversine } from './api/routing.js';
 import { geocodeAddress } from './api/geocode.js';
+import { getCurrentPosition } from './api/location.js';
 
 // 検索半径: 見つからなければ自動的に広げる (m)
 const SEARCH_RADII = [500, 1000, 2000, 4000];
@@ -92,24 +93,24 @@ export default function App() {
     return () => map.remove();
   }, []);
 
-  // ---- 起動時に現在地を取得 ----
+  // ---- 起動時に現在地を取得 (iOSネイティブ / Web 両対応) ----
   useEffect(() => {
-    if (!navigator.geolocation) {
-      setLocationDenied(true);
-      setStatus({ type: 'error', text: 'この端末では位置情報を利用できません。住所を入力してください。' });
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => setOrigin({ lat: pos.coords.latitude, lng: pos.coords.longitude, label: '現在地' }),
-      () => {
+    let cancelled = false;
+    getCurrentPosition()
+      .then((pos) => {
+        if (!cancelled) setOrigin({ ...pos, label: '現在地' });
+      })
+      .catch(() => {
+        if (cancelled) return;
         setLocationDenied(true);
         setStatus({
           type: 'error',
           text: '位置情報を取得できませんでした。住所や駅名を入力して検索できます。',
         });
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
-    );
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // ---- 出発地点が決まったら地図を移動してトイレを検索 ----
