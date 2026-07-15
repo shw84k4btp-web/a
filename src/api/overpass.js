@@ -11,15 +11,28 @@ const OVERPASS_ENDPOINTS = [
 // サーバー側 [timeout:15] より少し長く待つ (サーバー成功をクライアントが先に捨てない)
 const FETCH_TIMEOUT_MS = 18000;
 
-function buildQuery(lat, lng, radius) {
-  // 注意: "out center tags;" は node の座標を出力しないため使わないこと
-  // (tags verbosity は id+タグのみ。node が全て落ちて実質ヒット0になる)
+// 注意: "out center tags;" は node の座標を出力しないため使わないこと
+// (tags verbosity は id+タグのみ。node が全て落ちて実質ヒット0になる)
+function buildRadiusQuery(lat, lng, radius) {
   return `
 [out:json][timeout:15];
 (
   node["amenity"="toilets"](around:${radius},${lat},${lng});
   way["amenity"="toilets"](around:${radius},${lat},${lng});
   relation["amenity"="toilets"](around:${radius},${lat},${lng});
+);
+out center;
+`.trim();
+}
+
+function buildBBoxQuery(south, west, north, east) {
+  const bbox = `${south},${west},${north},${east}`;
+  return `
+[out:json][timeout:15];
+(
+  node["amenity"="toilets"](${bbox});
+  way["amenity"="toilets"](${bbox});
+  relation["amenity"="toilets"](${bbox});
 );
 out center;
 `.trim();
@@ -35,15 +48,21 @@ async function fetchWithTimeout(url, options, timeoutMs) {
   }
 }
 
-/**
- * 指定座標の半径 radius (m) 内のトイレを検索する。
- * 全エンドポイントを順に試し、すべて失敗したら例外を投げる。
- * @returns {Promise<Array<{id, lat, lng, tags}>>}
- */
-export async function searchToilets(lat, lng, radius) {
-  const query = buildQuery(lat, lng, radius);
-  let lastError = null;
+function parseElements(elements) {
+  return (elements || [])
+    .map((el) => {
+      // way / relation は中心座標 (center) を使う
+      const lat = el.lat ?? el.center?.lat;
+      const lng = el.lon ?? el.center?.lon;
+      if (lat == null || lng == null) return null;
+      return { id: `${el.type}/${el.id}`, lat, lng, tags: el.tags || {} };
+    })
+    .filter(Boolean);
+}
 
+// 全ミラーを順に試し、成功したら要素を返す。すべて失敗したら例外を投げる。
+async function runQuery(query) {
+  let lastError = null;
   for (const endpoint of OVERPASS_ENDPOINTS) {
     try {
       const res = await fetchWithTimeout(
@@ -66,18 +85,27 @@ export async function searchToilets(lat, lng, radius) {
         lastError = new Error(`Overpass remark: ${data.remark}`);
         continue;
       }
-      return (data.elements || [])
-        .map((el) => {
-          // way / relation は中心座標 (center) を使う
-          const lat2 = el.lat ?? el.center?.lat;
-          const lng2 = el.lon ?? el.center?.lon;
-          if (lat2 == null || lng2 == null) return null;
-          return { id: `${el.type}/${el.id}`, lat: lat2, lng: lng2, tags: el.tags || {} };
-        })
-        .filter(Boolean);
+      return parseElements(data.elements);
     } catch (err) {
       lastError = err;
     }
   }
   throw lastError || new Error('Overpass API に接続できませんでした');
+}
+
+/**
+ * 指定座標の半径 radius (m) 内のトイレを検索する。
+ * @returns {Promise<Array<{id, lat, lng, tags}>>}
+ */
+export function searchToilets(lat, lng, radius) {
+  return runQuery(buildRadiusQuery(lat, lng, radius));
+}
+
+/**
+ * 矩形範囲 (south,west,north,east: 度) 内のトイレを検索する。
+ * 目的地までの経路沿い (コリドー) のトイレを探す安心ルート機能で使用。
+ * @returns {Promise<Array<{id, lat, lng, tags}>>}
+ */
+export function searchToiletsInBBox(south, west, north, east) {
+  return runQuery(buildBBoxQuery(south, west, north, east));
 }
