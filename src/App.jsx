@@ -14,6 +14,10 @@ const MAX_RESULTS = 60;
 const DEFAULT_CENTER = [35.6812, 139.7671]; // 東京駅 (現在地取得前の仮表示)
 const WALK_SPEED_MPS = 1.33; // 徒歩 80m/分
 
+// 施設カテゴリ (overpass.js の category) ごとの表示
+const CATEGORY_EMOJI = { toilet: '🚻', convenience: '🏪', fuel: '⛽' };
+const CATEGORY_LABEL = { toilet: '公衆トイレ', convenience: 'コンビニ', fuel: 'ガソリンスタンド' };
+
 const userIcon = L.divIcon({
   className: 'user-marker',
   html: '<div class="user-marker-dot"><div class="user-marker-pulse"></div></div>',
@@ -21,10 +25,10 @@ const userIcon = L.divIcon({
   iconAnchor: [11, 11],
 });
 
-function toiletIcon(selected) {
+function toiletIcon(selected, category = 'toilet') {
   return L.divIcon({
     className: 'toilet-marker',
-    html: `<div class="toilet-marker-pin${selected ? ' selected' : ''}">🚻</div>`,
+    html: `<div class="toilet-marker-pin${selected ? ' selected' : ''}">${CATEGORY_EMOJI[category] || '🚻'}</div>`,
     iconSize: [38, 38],
     iconAnchor: [19, 36],
   });
@@ -32,10 +36,10 @@ function toiletIcon(selected) {
 
 // 安心ルートの経由トイレ用: 通過順の番号バッジ付きピン
 // (gapAfter: この地点の次の区間が1分の閾値を超える場合に警告色にする)
-function waypointIcon(order, gapAfter) {
+function waypointIcon(order, gapAfter, category = 'toilet') {
   return L.divIcon({
     className: 'waypoint-marker',
-    html: `<div class="waypoint-pin${gapAfter ? ' gap' : ''}">🚻<span class="waypoint-badge">${order}</span></div>`,
+    html: `<div class="waypoint-pin${gapAfter ? ' gap' : ''}">${CATEGORY_EMOJI[category] || '🚻'}<span class="waypoint-badge">${order}</span></div>`,
     iconSize: [38, 38],
     iconAnchor: [19, 36],
   });
@@ -67,14 +71,18 @@ function arrivalTime(sec) {
 }
 
 function toiletName(t) {
-  return t.tags.name || t.tags['name:ja'] || '公衆トイレ';
+  return t.tags.name || t.tags['name:ja'] || t.tags.brand || CATEGORY_LABEL[t.category] || '公衆トイレ';
 }
 
 function toiletDetails(t) {
   const d = [];
+  // 専用トイレ以外は「施設内のトイレ」であることが分かるようカテゴリを明示
+  if (t.category && t.category !== 'toilet') {
+    d.push(`${CATEGORY_EMOJI[t.category]} ${CATEGORY_LABEL[t.category]}のトイレ`);
+  }
   if (t.tags.wheelchair === 'yes') d.push('♿ 車椅子対応');
   if (t.tags.fee === 'yes') d.push('💰 有料');
-  if (t.tags.fee === 'no') d.push('無料');
+  if (t.tags.fee === 'no' && t.category === 'toilet') d.push('無料');
   if (t.tags.opening_hours) d.push(`🕐 ${t.tags.opening_hours}`);
   if (t.tags.changing_table === 'yes') d.push('🚼 おむつ交換台');
   return d;
@@ -271,10 +279,10 @@ export default function App() {
     layer.clearLayers();
     const byId = new Map();
     toilets.forEach((t) => {
-      const m = L.marker([t.lat, t.lng], { icon: toiletIcon(false) })
+      const m = L.marker([t.lat, t.lng], { icon: toiletIcon(false, t.category) })
         .addTo(layer)
         .on('click', () => selectToilet(t));
-      byId.set(t.id, m);
+      byId.set(t.id, { marker: m, category: t.category });
     });
     markerByIdRef.current = byId;
     prevSelectedIdRef.current = null;
@@ -288,10 +296,12 @@ export default function App() {
     const nextId = selected?.id ?? null;
     if (prevId === nextId) return;
     if (prevId != null && byId.has(prevId)) {
-      byId.get(prevId).setIcon(toiletIcon(false)).setZIndexOffset(0);
+      const { marker, category } = byId.get(prevId);
+      marker.setIcon(toiletIcon(false, category)).setZIndexOffset(0);
     }
     if (nextId != null && byId.has(nextId)) {
-      byId.get(nextId).setIcon(toiletIcon(true)).setZIndexOffset(500);
+      const { marker, category } = byId.get(nextId);
+      marker.setIcon(toiletIcon(true, category)).setZIndexOffset(500);
     }
     prevSelectedIdRef.current = nextId;
   }, [selected, toilets]);
@@ -373,7 +383,7 @@ export default function App() {
       L.marker([t.lat, t.lng], {
         // legs[i] は「このトイレに到着する区間」なので、「この先の区間が1分超過」の
         // 警告色には次の区間 legs[i+1] を参照する
-        icon: waypointIcon(i + 1, result.legs[i + 1]?.exceedsThreshold),
+        icon: waypointIcon(i + 1, result.legs[i + 1]?.exceedsThreshold, t.category),
         zIndexOffset: 400,
       })
     );
@@ -616,7 +626,7 @@ export default function App() {
                 <div className="sheet-scroll">
                   {toilets.map((t) => (
                     <button key={t.id} className="toilet-row" onClick={() => selectToilet(t)}>
-                      <span className="toilet-row-icon">🚻</span>
+                      <span className="toilet-row-icon">{CATEGORY_EMOJI[t.category] || '🚻'}</span>
                       <span className="toilet-row-main">
                         <span className="toilet-row-name">{toiletName(t)}</span>
                         {toiletDetails(t).length > 0 && (
@@ -689,7 +699,9 @@ export default function App() {
                 </button>
               </div>
 
-              {/* 交通手段の切り替え (Google マップ風のタブ。切替で再計算) */}
+              {/* 交通手段の切り替え (Google マップ風のタブ。切替で再計算)。
+                  エラーのみ表示中はタブを出さない (古い目的地への再計算を防ぐ) */}
+              {(safeRoute || safeRouteLoading) && (
               <div className="travel-tabs" role="tablist" aria-label="交通手段">
                 {Object.entries(TRAVEL_MODES).map(([key, cfg]) => (
                   <button
@@ -708,6 +720,7 @@ export default function App() {
                   </button>
                 ))}
               </div>
+              )}
 
               {safeRouteLoading && (
                 <div className="route-loading">
