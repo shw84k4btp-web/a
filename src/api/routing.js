@@ -9,12 +9,21 @@ const OSRM_FOOT_ENDPOINTS = [
   'https://routing.openstreetmap.de/routed-foot/route/v1/foot',
 ];
 
-// 「安心ルート」(車移動) では car プロファイルが本来の用途に合致するため、
-// 同じ公開デモサーバーを意図して使用する (徒歩フォールバックでの誤用とは別の話)。
-const OSRM_CAR_ENDPOINTS = ['https://router.project-osrm.org/route/v1/driving'];
+// 「安心ルート」の交通手段別エンドポイント。FOSSGIS はインスタンスごとに
+// プロファイルが固定されている (URL 末尾のプロファイル名は無視される) ため、
+// どの手段でも URL パスは /route/v1/driving に統一してある。
+const OSRM_PROFILE_ENDPOINTS = {
+  car: [
+    'https://routing.openstreetmap.de/routed-car/route/v1/driving',
+    'https://router.project-osrm.org/route/v1/driving', // 公開デモは car プロファイル
+  ],
+  bike: ['https://routing.openstreetmap.de/routed-bike/route/v1/driving'],
+  foot: ['https://routing.openstreetmap.de/routed-foot/route/v1/driving'],
+};
 
 const WALK_SPEED_MPS = 1.33; // 約 80m/分 (不動産表示の徒歩速度)
-const CAR_SPEED_MPS = 8.33; // 約 30km/h (フォールバック時の市街地走行速度の目安)
+// 全ルーティングサーバー失敗時の直線概算に使う速度 (市街地の目安)
+const FALLBACK_SPEED_MPS = { car: 8.33, bike: 4.2, foot: 1.33 };
 const FETCH_TIMEOUT_MS = 15000;
 
 export function haversine(a, b) {
@@ -143,9 +152,10 @@ export async function getWalkingRoute(from, to) {
  *   legs: Array<{distance: number, duration: number}>, approximate: boolean
  * }>}
  */
-export async function getDrivingRoute(waypoints) {
+export async function getRouteViaWaypoints(waypoints, travelMode = 'car') {
   const coordsParam = waypoints.map((w) => `${w.lng},${w.lat}`).join(';');
-  for (const base of OSRM_CAR_ENDPOINTS) {
+  const endpoints = OSRM_PROFILE_ENDPOINTS[travelMode] || OSRM_PROFILE_ENDPOINTS.car;
+  for (const base of endpoints) {
     try {
       const url = `${base}/${coordsParam}?overview=full&geometries=geojson&steps=false`;
       const res = await fetchWithTimeout(url, FETCH_TIMEOUT_MS);
@@ -166,10 +176,11 @@ export async function getDrivingRoute(waypoints) {
   }
 
   // 全ルーティングサーバー失敗時: 区間ごとに直線で繋いで概算
+  const speed = FALLBACK_SPEED_MPS[travelMode] || FALLBACK_SPEED_MPS.car;
   const legs = [];
   for (let i = 0; i < waypoints.length - 1; i++) {
     const d = haversine(waypoints[i], waypoints[i + 1]);
-    legs.push({ distance: d, duration: d / CAR_SPEED_MPS });
+    legs.push({ distance: d, duration: d / speed });
   }
   return {
     coords: waypoints.map((w) => [w.lat, w.lng]),
@@ -179,3 +190,6 @@ export async function getDrivingRoute(waypoints) {
     approximate: true,
   };
 }
+
+// 後方互換: 既存呼び出し向けの車ルートショートカット
+export const getDrivingRoute = (waypoints) => getRouteViaWaypoints(waypoints, 'car');

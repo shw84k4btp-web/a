@@ -11,17 +11,36 @@
 //      その区間だけ狭い範囲で再検索して1回だけ補完を試みる
 //   5. 補完しきれない区間は「ギャップ」として結果に含め、UI側で警告表示する
 
-import { haversine, getDrivingRoute } from './routing.js';
+import { haversine, getRouteViaWaypoints } from './routing.js';
 import { searchToiletsInBBox } from './overpass.js';
 
 const R = 6371000;
 const CORRIDOR_HALF_WIDTH_M = 700; // コリドー (進行方向の帯) の片側幅
 const GAP_FILL_HALF_WIDTH_M = 500; // ギャップ補完時に狭めて検索する範囲
-const MAX_STRAIGHT_LEG_M = 900; // 貪欲法で「次の候補」とみなす直線距離の上限
 const MAX_WAYPOINTS = 10; // OSRM への同時経由地点数の上限 (URL長・応答サイズ対策)
-const GAP_THRESHOLD_SEC = 60; // 「車で1分」の閾値
 const MAX_TRIP_STRAIGHT_M = 60000; // これを超える距離は矩形検索が大きくなりすぎるため対象外
 const MIN_TRIP_STRAIGHT_M = 100; // 近すぎる目的地はコリドー計算が不安定になるため対象外
+
+// 交通手段ごとの設定。thresholdSec が「常に◯◯以内にトイレ」の閾値で、
+// legMaxM は貪欲法で「次の候補」とみなす直線距離の上限 (閾値時間で無理なく
+// 移動できる距離の目安)。thresholdShort/Label は UI 表示用の文言
+export const TRAVEL_MODES = {
+  car: {
+    emoji: '🚗', label: '車',
+    thresholdSec: 60, thresholdShort: '1分', thresholdLabel: '車で1分',
+    legMaxM: 900,
+  },
+  bike: {
+    emoji: '🚴', label: '自転車',
+    thresholdSec: 120, thresholdShort: '2分', thresholdLabel: '自転車で2分',
+    legMaxM: 500,
+  },
+  foot: {
+    emoji: '🚶', label: '徒歩',
+    thresholdSec: 300, thresholdShort: '5分', thresholdLabel: '徒歩5分',
+    legMaxM: 400,
+  },
+};
 
 export class SafeRouteError extends Error {
   constructor(code, message) {
@@ -83,11 +102,11 @@ async function fillGap(fromPoint, toPoint, excludeIds) {
   return fresh[0];
 }
 
-// 貪欲法: 「まだ MAX_STRAIGHT_LEG_M 以内に置ける、最も進捗率 (t) の大きい候補」を
+// 貪欲法: 「まだ legMaxM 以内に置ける、最も進捗率 (t) の大きい候補」を
 // 選び続ける。区間ごとの最大ギャップを一定に抑えつつ経由地点数を少なく保つ
 // (1次元の区間被覆の貪欲法の考え方を2D距離判定に適用した近似。
 //  startIdx が毎回単調増加するため停止性は保証される)。
-function buildGreedyChain(sortedCandidates, originFlat, destFlat) {
+function buildGreedyChain(sortedCandidates, originFlat, destFlat, legMaxM) {
   const chain = [];
   let current = originFlat;
   let currentT = 0;
@@ -100,7 +119,7 @@ function buildGreedyChain(sortedCandidates, originFlat, destFlat) {
       const cand = sortedCandidates[i];
       if (cand.t <= currentT) continue;
       const dist = Math.hypot(cand.flat.x - current.x, cand.flat.y - current.y);
-      if (dist <= MAX_STRAIGHT_LEG_M && cand.t > bestT) {
+      if (dist <= legMaxM && cand.t > bestT) {
         bestT = cand.t;
         bestIdx = i;
       }
@@ -110,7 +129,7 @@ function buildGreedyChain(sortedCandidates, originFlat, destFlat) {
       // 直進では届く範囲に候補がない。目的地まで直進できるなら打ち切り、
       // できないなら範囲を広げて最も近い次善候補で橋渡しを試みる。
       const distToDest = Math.hypot(destFlat.x - current.x, destFlat.y - current.y);
-      if (distToDest <= MAX_STRAIGHT_LEG_M) break;
+      if (distToDest <= legMaxM) break;
 
       let bridgeIdx = -1;
       let bridgeDist = Infinity;
@@ -118,7 +137,7 @@ function buildGreedyChain(sortedCandidates, originFlat, destFlat) {
         const cand = sortedCandidates[i];
         if (cand.t <= currentT) continue;
         const dist = Math.hypot(cand.flat.x - current.x, cand.flat.y - current.y);
-        if (dist <= MAX_STRAIGHT_LEG_M * 2 && dist < bridgeDist) {
+        if (dist <= legMaxM * 2 && dist < bridgeDist) {
           bridgeDist = dist;
           bridgeIdx = i;
         }
@@ -143,18 +162,19 @@ function buildGreedyChain(sortedCandidates, originFlat, destFlat) {
   return chain;
 }
 
-function buildLegs(routeResult, chain) {
+function buildLegs(routeResult, chain, thresholdSec) {
   return routeResult.legs.map((leg, i) => ({
     toilet: i < chain.length ? chain[i] : null, // 最後の区間は目的地への到着区間
     distance: leg.distance,
     duration: leg.duration,
-    exceedsThreshold: leg.duration > GAP_THRESHOLD_SEC,
+    exceedsThreshold: leg.duration > thresholdSec,
   }));
 }
 
 /**
  * origin → destination のコリドー内のトイレをできるだけ経由しながら、
- * 常に車で GAP_THRESHOLD_SEC 以内にトイレがある「安心ルート」を組み立てる。
+ * 常に選択した交通手段で閾値時間 (TRAVEL_MODES[travelMode].thresholdSec) 以内に
+ * トイレがある「安心ルート」を組み立てる。
  * ネットワーク障害時は直線フォールバックで応答する (投げるのは入力値検証エラーのみ)。
  *
  * @returns {Promise<{
@@ -164,7 +184,8 @@ function buildLegs(routeResult, chain) {
  *   approximate: boolean, toiletDataUnavailable: boolean
  * }>}
  */
-export async function buildSafeRoute(origin, destination) {
+export async function buildSafeRoute(origin, destination, travelMode = 'car') {
+  const modeCfg = TRAVEL_MODES[travelMode] || TRAVEL_MODES.car;
   const straightM = haversine(origin, destination);
   if (straightM < MIN_TRIP_STRAIGHT_M) {
     throw new SafeRouteError('TOO_CLOSE', '目的地が近すぎます。安心ルートは100m以上先の目的地向けです。');
@@ -194,10 +215,10 @@ export async function buildSafeRoute(origin, destination) {
     .filter((c) => c.t >= -0.08 && c.t <= 1.08 && c.perp <= CORRIDOR_HALF_WIDTH_M)
     .sort((a, b) => a.t - b.t);
 
-  let chain = buildGreedyChain(candidates, originFlat, destFlat);
+  let chain = buildGreedyChain(candidates, originFlat, destFlat, modeCfg.legMaxM);
   let waypoints = [origin, ...chain, destination];
-  let routeResult = await getDrivingRoute(waypoints);
-  let legs = buildLegs(routeResult, chain);
+  let routeResult = await getRouteViaWaypoints(waypoints, travelMode);
+  let legs = buildLegs(routeResult, chain, modeCfg.thresholdSec);
 
   // ギャップ区間を1回だけ補完してみる (再帰させず1パスに限定して挙動を予測可能にする)
   const gapIndices = legs.reduce((acc, l, i) => (l.exceedsThreshold ? [...acc, i] : acc), []);
@@ -222,12 +243,12 @@ export async function buildSafeRoute(origin, destination) {
       insertedCount++;
     }
     if (insertedCount > 0) {
-      const retryResult = await getDrivingRoute(newWaypoints);
+      const retryResult = await getRouteViaWaypoints(newWaypoints, travelMode);
       if (!retryResult.approximate) {
         waypoints = newWaypoints;
         chain = newWaypoints.slice(1, -1);
         routeResult = retryResult;
-        legs = buildLegs(routeResult, chain);
+        legs = buildLegs(routeResult, chain, modeCfg.thresholdSec);
       }
     }
   }
@@ -242,5 +263,6 @@ export async function buildSafeRoute(origin, destination) {
     gapCount: legs.filter((l) => l.exceedsThreshold).length,
     approximate: routeResult.approximate,
     toiletDataUnavailable,
+    travelMode,
   };
 }

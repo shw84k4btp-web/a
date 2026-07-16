@@ -36,9 +36,11 @@ body {
 
 /* ================= リキッドグラス共通 ================= */
 .glass {
-  background: rgba(255, 255, 255, 0.62);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
+  background: rgba(255, 255, 255, 0.72);
+  /* blur半径とsaturateは描画コストに直結する (iPhoneで重くなる) ため控えめに。
+     大面積の要素 (ボトムシート) では backdrop-filter 自体を無効化している */
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.65);
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.16),
@@ -249,9 +251,8 @@ body {
   width: 36px;
   height: 36px;
   font-size: 18px;
-  background: rgba(255, 255, 255, 0.85);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  /* マーカーは数十個並ぶため backdrop-filter は使わない (個数分ブラー領域が増えて重い) */
+  background: #fff;
   border: 2px solid #1a73e8;
   border-radius: 50% 50% 50% 6px;
   transform: rotate(-45deg);
@@ -330,6 +331,12 @@ body {
   right: 0;
   bottom: 0;
   z-index: 1002;
+  /* 画面の大部分を覆う要素の backdrop-filter は、下の地図が動くたびに
+     全域の再ブラーが走り iPhone で极端に重くなるため、シートだけは
+     ほぼ不透明な背景にしてブラーを無効化する (Google マップと同じ方式) */
+  background: rgba(252, 252, 254, 0.96);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
   display: flex;
   flex-direction: column;
   border-radius: 26px 26px 0 0;
@@ -622,10 +629,44 @@ body {
   color: #6d6d72;
 }
 
-/* Leaflet の帰属表記をグラスに馴染ませる */
+/* Leaflet の帰属表記 (地図の上に常時載るためブラーは使わない) */
 .leaflet-control-attribution {
-  background: rgba(255, 255, 255, 0.5) !important;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.75) !important;
   font-size: 10px !important;
+}
+
+/* 長いリストは画面外の行の描画をスキップする */
+.toilet-row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 64px;
+}
+
+/* ================= 交通手段タブ (Google マップ風) ================= */
+.travel-tabs {
+  flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+  padding: 0 20px 10px;
+}
+
+.travel-tabs button {
+  flex: 1;
+  padding: 8px 0;
+  border: 1px solid rgba(60, 60, 67, 0.15);
+  border-radius: 999px;
+  background: rgba(120, 120, 128, 0.08);
+  color: #3c3c43;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.travel-tabs button.active {
+  background: #e8f0fe;
+  border-color: #1a73e8;
+  color: #1a73e8;
+}
+
+.travel-tabs button:disabled {
+  opacity: 0.5;
 }

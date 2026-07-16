@@ -4,10 +4,13 @@ import { searchToilets } from './api/overpass.js';
 import { getWalkingRoute, haversine } from './api/routing.js';
 import { geocodeAddress } from './api/geocode.js';
 import { getCurrentPosition } from './api/location.js';
-import { buildSafeRoute, SafeRouteError } from './api/safeRoute.js';
+import { buildSafeRoute, SafeRouteError, TRAVEL_MODES } from './api/safeRoute.js';
 
 // 検索半径: 見つからなければ自動的に広げる (m)
 const SEARCH_RADII = [500, 1000, 2000, 4000];
+// 表示する最大件数。都心部では数百件返ることがあり、マーカーとリスト行を
+// 全件描画すると端末 (特にiPhone) が重くなるため近い順に制限する
+const MAX_RESULTS = 60;
 const DEFAULT_CENTER = [35.6812, 139.7671]; // 東京駅 (現在地取得前の仮表示)
 const WALK_SPEED_MPS = 1.33; // 徒歩 80m/分
 
@@ -77,8 +80,9 @@ function toiletDetails(t) {
   return d;
 }
 
-// ボトムシートのスナップ位置 (画面の高さに対する割合)
-const SHEET_SNAPS = [0.22, 0.45, 0.82];
+// ボトムシートのスナップ位置 (画面の高さに対する割合)。
+// 最小の 0.14 はサマリー行だけが見える「地図主体」の状態 (Google マップと同じ発想)
+const SHEET_SNAPS = [0.14, 0.45, 0.82];
 const TOPBAR_SLOT_HEIGHT = 56; // 上部フローティングバー1段あたりの高さ目安 (px)
 
 export default function App() {
@@ -112,6 +116,7 @@ export default function App() {
   const [safeRoute, setSafeRoute] = useState(null);
   const [safeRouteLoading, setSafeRouteLoading] = useState(false);
   const [safeRouteError, setSafeRouteError] = useState(null);
+  const [travelMode, setTravelMode] = useState('car'); // 'car' | 'bike' | 'foot'
 
   // ボトムシート (Google Maps 風のドラッグ操作)
   const [sheetRatio, setSheetRatio] = useState(SHEET_SNAPS[1]);
@@ -194,12 +199,18 @@ export default function App() {
       }
       if (seq !== searchSeqRef.current) return; // 新しい検索が始まっていたら破棄
       if (found.length > 0) {
-        // 近い順に並べて直線距離を付与 (一覧表示用)
+        // 近い順に並べて直線距離を付与 (一覧表示用)。件数は近い順に制限
         const withDist = found
           .map((t) => ({ ...t, crowDist: haversine(o, t) }))
           .sort((a, b) => a.crowDist - b.crowDist);
-        setToilets(withDist);
-        setStatus({ type: 'ok', text: `${withDist.length} 件見つかりました (半径 ${radius}m)` });
+        setToilets(withDist.slice(0, MAX_RESULTS));
+        setStatus({
+          type: 'ok',
+          text:
+            withDist.length > MAX_RESULTS
+              ? `${withDist.length}件見つかりました (近い順${MAX_RESULTS}件を表示)`
+              : `${withDist.length} 件見つかりました (半径 ${radius}m)`,
+        });
         return;
       }
     }
@@ -251,19 +262,39 @@ export default function App() {
   );
 
   // ---- マーカーの描画 (最寄りトイレモード) ----
+  // 一覧が変わったときだけ全マーカーを作り直す。選択変更では作り直さない
+  const markerByIdRef = useRef(new Map());
+  const prevSelectedIdRef = useRef(null);
   useEffect(() => {
     const layer = markersRef.current;
     if (!layer) return;
     layer.clearLayers();
+    const byId = new Map();
     toilets.forEach((t) => {
-      L.marker([t.lat, t.lng], {
-        icon: toiletIcon(selected?.id === t.id),
-        zIndexOffset: selected?.id === t.id ? 500 : 0,
-      })
+      const m = L.marker([t.lat, t.lng], { icon: toiletIcon(false) })
         .addTo(layer)
         .on('click', () => selectToilet(t));
+      byId.set(t.id, m);
     });
-  }, [toilets, selected, selectToilet]);
+    markerByIdRef.current = byId;
+    prevSelectedIdRef.current = null;
+  }, [toilets, selectToilet]);
+
+  // 選択が変わったら該当する2つのピンのアイコンだけ差し替える
+  // (タップのたびに全ピンを破棄・再生成すると台数が多いとき重い)
+  useEffect(() => {
+    const byId = markerByIdRef.current;
+    const prevId = prevSelectedIdRef.current;
+    const nextId = selected?.id ?? null;
+    if (prevId === nextId) return;
+    if (prevId != null && byId.has(prevId)) {
+      byId.get(prevId).setIcon(toiletIcon(false)).setZIndexOffset(0);
+    }
+    if (nextId != null && byId.has(nextId)) {
+      byId.get(nextId).setIcon(toiletIcon(true)).setZIndexOffset(500);
+    }
+    prevSelectedIdRef.current = nextId;
+  }, [selected, toilets]);
 
   // ---- ルート案内を閉じる (進行中のルート取得も世代番号で無効化) ----
   const closeRoute = useCallback(() => {
@@ -302,7 +333,7 @@ export default function App() {
   }, []);
 
   // ---- 安心ルートを計算して描画する ----
-  const runSafeRoute = useCallback(async (o, d) => {
+  const runSafeRoute = useCallback(async (o, d, mode) => {
     const seq = ++safeRouteSeqRef.current;
     setSafeRoute(null);
     setSafeRouteError(null);
@@ -314,7 +345,7 @@ export default function App() {
 
     let result;
     try {
-      result = await buildSafeRoute(o, d);
+      result = await buildSafeRoute(o, d, mode);
     } catch (err) {
       if (seq !== safeRouteSeqRef.current) return; // 新しい計算・閉じる操作で無効化済み
       setSafeRouteLoading(false);
@@ -363,23 +394,37 @@ export default function App() {
   }
 
   // ---- ボトムシートのドラッグ ----
+  // ドラッグ中は React の再レンダーを介さず DOM を直接更新する。
+  // (毎フレーム setState すると一覧全体が再描画されて iPhone でカクつくため)
+  const sheetRef = useRef(null);
+  const fabRef = useRef(null);
+  const applySheetHeight = (ratio) => {
+    if (sheetRef.current) sheetRef.current.style.height = `${ratio * 100}%`;
+    if (fabRef.current) {
+      fabRef.current.style.bottom = `calc(${ratio * 100}% + 20px + env(safe-area-inset-bottom))`;
+    }
+  };
   function onSheetPointerDown(e) {
     sheetDragging.current = true;
-    dragRef.current = { startY: e.clientY, startRatio: sheetRatio };
+    dragRef.current = { startY: e.clientY, startRatio: sheetRatio, ratio: sheetRatio };
+    sheetRef.current?.classList.add('dragging');
     e.currentTarget.setPointerCapture(e.pointerId);
   }
   function onSheetPointerMove(e) {
     if (!sheetDragging.current || !dragRef.current) return;
     const dy = dragRef.current.startY - e.clientY;
     const ratio = Math.min(0.9, Math.max(0.12, dragRef.current.startRatio + dy / window.innerHeight));
-    setSheetRatio(ratio);
+    dragRef.current.ratio = ratio;
+    applySheetHeight(ratio);
   }
   function onSheetPointerUp() {
     if (!sheetDragging.current) return;
     sheetDragging.current = false;
-    setSheetRatio((r) =>
-      SHEET_SNAPS.reduce((best, s) => (Math.abs(s - r) < Math.abs(best - r) ? s : best))
-    );
+    sheetRef.current?.classList.remove('dragging');
+    const r = dragRef.current?.ratio ?? sheetRatio;
+    const snap = SHEET_SNAPS.reduce((best, s) => (Math.abs(s - r) < Math.abs(best - r) ? s : best));
+    applySheetHeight(snap);
+    setSheetRatio(snap); // スナップ確定時だけ state を更新して再レンダー
   }
 
   // ---- 現在地に戻る ----
@@ -419,7 +464,7 @@ export default function App() {
       } else {
         const dest = { lat: result.lat, lng: result.lng, label: result.label.split(',')[0] };
         setDestination(dest);
-        runSafeRoute(origin, dest);
+        runSafeRoute(origin, dest, travelMode);
       }
     } catch {
       setSafeRouteError('目的地検索に失敗しました。時間をおいて再試行してください。');
@@ -462,7 +507,7 @@ export default function App() {
                 )}
               </>
             ) : (
-              <span>常に車で1分以内のトイレを経由して目的地へ</span>
+              <span>常に{TRAVEL_MODES[travelMode].thresholdLabel}以内のトイレを経由して目的地へ</span>
             )}
           </div>
         </div>
@@ -540,6 +585,7 @@ export default function App() {
       {/* 現在地ボタン */}
       {origin && (
         <button
+          ref={fabRef}
           className="fab glass"
           style={{ bottom: `calc(${showSheet ? sheetRatio * 100 : 0}% + 20px + env(safe-area-inset-bottom))` }}
           onClick={recenter}
@@ -551,10 +597,7 @@ export default function App() {
 
       {/* ボトムシート */}
       {showSheet && (
-        <div
-          className={`sheet glass${sheetDragging.current ? ' dragging' : ''}`}
-          style={{ height: `${sheetRatio * 100}%` }}
-        >
+        <div ref={sheetRef} className="sheet glass" style={{ height: `${sheetRatio * 100}%` }}>
           <div
             className="sheet-handle-area"
             onPointerDown={onSheetPointerDown}
@@ -646,6 +689,26 @@ export default function App() {
                 </button>
               </div>
 
+              {/* 交通手段の切り替え (Google マップ風のタブ。切替で再計算) */}
+              <div className="travel-tabs" role="tablist" aria-label="交通手段">
+                {Object.entries(TRAVEL_MODES).map(([key, cfg]) => (
+                  <button
+                    key={key}
+                    role="tab"
+                    aria-selected={travelMode === key}
+                    className={travelMode === key ? 'active' : ''}
+                    disabled={safeRouteLoading}
+                    onClick={() => {
+                      if (travelMode === key) return;
+                      setTravelMode(key);
+                      if (origin && destination) runSafeRoute(origin, destination, key);
+                    }}
+                  >
+                    {cfg.emoji} {cfg.label}
+                  </button>
+                ))}
+              </div>
+
               {safeRouteLoading && (
                 <div className="route-loading">
                   <span className="spinner" /> 安心ルートを計算中…
@@ -657,7 +720,10 @@ export default function App() {
               {safeRoute && (
                 <>
                   <div className="route-summary">
-                    <span className="route-time">🚗 {formatMinutes(safeRoute.duration)}</span>
+                    <span className="route-time">
+                      {(TRAVEL_MODES[safeRoute.travelMode] || TRAVEL_MODES.car).emoji}{' '}
+                      {formatMinutes(safeRoute.duration)}
+                    </span>
                     <span className="route-sub">
                       {formatDistance(safeRoute.distance)} · <strong>{arrivalTime(safeRoute.duration)} 到着</strong>
                     </span>
@@ -665,8 +731,8 @@ export default function App() {
 
                   <div className={`safety-chip ${safeRoute.gapCount === 0 ? 'ok' : 'warn'}`}>
                     {safeRoute.gapCount === 0
-                      ? `✅ 全区間、車で1分以内にトイレがあります (${safeRoute.toiletsUsed.length}件経由)`
-                      : `⚠ ${safeRoute.gapCount}区間でトイレまで1分を超えます (${safeRoute.toiletsUsed.length}件経由)`}
+                      ? `✅ 全区間、${(TRAVEL_MODES[safeRoute.travelMode] || TRAVEL_MODES.car).thresholdLabel}以内にトイレがあります (${safeRoute.toiletsUsed.length}件経由)`
+                      : `⚠ ${safeRoute.gapCount}区間でトイレまで${(TRAVEL_MODES[safeRoute.travelMode] || TRAVEL_MODES.car).thresholdShort}を超えます (${safeRoute.toiletsUsed.length}件経由)`}
                   </div>
 
                   {safeRoute.toiletDataUnavailable && (
@@ -684,7 +750,11 @@ export default function App() {
                           <span className="leg-name">
                             {leg.toilet ? toiletName(leg.toilet) : destination?.label || '目的地'}
                           </span>
-                          {leg.exceedsThreshold && <span className="leg-warn">この区間は1分を超えます</span>}
+                          {leg.exceedsThreshold && (
+                            <span className="leg-warn">
+                              この区間は{(TRAVEL_MODES[safeRoute.travelMode] || TRAVEL_MODES.car).thresholdShort}を超えます
+                            </span>
+                          )}
                         </span>
                         <span className="leg-time">{formatMinutes(leg.duration)}</span>
                       </div>
