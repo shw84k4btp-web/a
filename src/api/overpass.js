@@ -21,6 +21,19 @@ const DEMOTE_MS = 5 * 60 * 1000;
 const CACHE_TTL_MS = 12 * 60 * 1000;
 const CACHE_MAX_ENTRIES = 30;
 
+// bbox を外側スナップで量子化するグリッド幅 (度)。約550m。
+// GPSジッターで毎回微妙に違う bbox になりキャッシュが効かない問題を防ぐ。
+// 必ず「外側に」丸めるので取得範囲は要求の上位集合になり、欠落方向の誤差は
+// 構造的に発生しない (呼び出し側は必要に応じて自分の条件で絞り込む)
+const BBOX_SNAP_DEG = 0.005;
+
+// localStorage への永続キャッシュ (アプリを開き直しても直近エリアが瞬時に出る)。
+// キーにクエリ内容のハッシュを使うため、検索対象カテゴリ等の仕様変更で
+// クエリ文字列が変われば自然に別キーになる (古いキャッシュの毒化なし)
+const STORAGE_PREFIX = 'tf-ovp:';
+const STORAGE_TTL_MS = 12 * 60 * 60 * 1000;
+const STORAGE_MAX_ENTRIES = 15;
+
 // 検索対象の施設カテゴリ。selector は Overpass のタグ条件、
 // category は UI でアイコン・名称を出し分けるための識別子
 const TARGET_SELECTORS = [
@@ -50,11 +63,24 @@ out center;
 `.trim();
 }
 
+// 外側スナップ: south/west は切り捨て、north/east は切り上げ。
+// toFixed(3) で浮動小数点の揺れを正規化しクエリ文字列 (=キャッシュキー) を安定させる
+function snapBBox(south, west, north, east) {
+  const f = BBOX_SNAP_DEG;
+  return {
+    south: (Math.floor(south / f) * f).toFixed(3),
+    west: (Math.floor(west / f) * f).toFixed(3),
+    north: (Math.ceil(north / f) * f).toFixed(3),
+    east: (Math.ceil(east / f) * f).toFixed(3),
+  };
+}
+
 function buildBBoxQuery(south, west, north, east) {
+  const b = snapBBox(south, west, north, east);
   return `
 [out:json][timeout:15];
 (
-${targetClauses(`${south},${west},${north},${east}`)}
+${targetClauses(`${b.south},${b.west},${b.north},${b.east}`)}
 );
 out center;
 `.trim();
@@ -187,6 +213,54 @@ function runQueryHedged(query) {
   });
 }
 
+// ---- localStorage 永続キャッシュ (失敗は書かない・容量/エントリ上限・全てtry/catch) ----
+function storageKey(query) {
+  let h = 5381;
+  for (let i = 0; i < query.length; i++) h = ((h * 33) ^ query.charCodeAt(i)) >>> 0;
+  return STORAGE_PREFIX + h.toString(36);
+}
+
+function storageGet(query) {
+  try {
+    const raw = localStorage.getItem(storageKey(query));
+    if (!raw) return null;
+    const rec = JSON.parse(raw);
+    if (!rec || rec.q !== query || Date.now() - rec.t > STORAGE_TTL_MS) return null;
+    return rec.e;
+  } catch {
+    return null;
+  }
+}
+
+function storageSet(query, elements) {
+  try {
+    localStorage.setItem(
+      storageKey(query),
+      JSON.stringify({ q: query, t: Date.now(), e: elements })
+    );
+    // エントリ数上限: 古いものから削除
+    const mine = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(STORAGE_PREFIX)) {
+        try {
+          mine.push({ k, t: JSON.parse(localStorage.getItem(k))?.t || 0 });
+        } catch {
+          mine.push({ k, t: 0 });
+        }
+      }
+    }
+    if (mine.length > STORAGE_MAX_ENTRIES) {
+      mine.sort((a, b) => a.t - b.t);
+      for (const { k } of mine.slice(0, mine.length - STORAGE_MAX_ENTRIES)) {
+        localStorage.removeItem(k);
+      }
+    }
+  } catch {
+    // 容量超過等は無視 (キャッシュは最善努力)
+  }
+}
+
 // ---- クエリ文字列キーのメモリキャッシュ (Promiseを保持して同時重複発火も排除) ----
 // 注意: Promise は複数の呼び出し元で共有される。将来 AbortSignal をこの層へ
 // 貫通させる場合、共有 Promise に呼び出し元の signal を直結してはいけない
@@ -203,12 +277,19 @@ function runQuery(query) {
     return hit.promise;
   }
 
-  const promise = runQueryHedged(query);
+  // 永続キャッシュにあればネットワークに出ない
+  const stored = storageGet(query);
+  const promise = stored ? Promise.resolve(stored) : runQueryHedged(query);
   queryCache.set(query, { promise, expires: now + CACHE_TTL_MS });
-  // 失敗はキャッシュしない (次回は再取得させる)
-  promise.catch(() => {
-    if (queryCache.get(query)?.promise === promise) queryCache.delete(query);
-  });
+  if (!stored) {
+    promise.then(
+      (elements) => storageSet(query, elements),
+      () => {
+        // 失敗はキャッシュしない (次回は再取得させる)
+        if (queryCache.get(query)?.promise === promise) queryCache.delete(query);
+      }
+    );
+  }
   // LRU: 上限を超えたら最も使われていないもの (先頭) から捨てる
   if (queryCache.size > CACHE_MAX_ENTRIES) {
     const oldest = queryCache.keys().next().value;
@@ -245,7 +326,10 @@ export function searchToiletsInBBox(south, west, north, east) {
 export function searchToiletsInBBoxes(bboxes) {
   if (!bboxes.length) return Promise.resolve([]);
   const clauses = bboxes
-    .map((b) => targetClauses(`${b.south},${b.west},${b.north},${b.east}`))
+    .map((b) => {
+      const s = snapBBox(b.south, b.west, b.north, b.east);
+      return targetClauses(`${s.south},${s.west},${s.north},${s.east}`);
+    })
     .join('\n');
   const query = `
 [out:json][timeout:15];

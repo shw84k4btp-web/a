@@ -87,6 +87,20 @@ Xcode側では:
 
 Macがない場合も、PWA版(ホーム画面に追加)なら同じ機能をそのまま使えます。
 
+## ⚡ 爆速モード (静的トイレデータタイル)
+
+Overpass API の応答待ち (2〜10秒) を消すため、日本全国のトイレ・コンビニ・GSデータを
+事前抽出した静的タイルを同梱できます。タイルがあれば検索は数十msで完了し、
+無ければ従来どおり Overpass に自動フォールバックします (単一HTML版はフォールバック動作)。
+
+```bash
+node scripts/build-toilet-tiles.mjs   # 約15〜25分。public/toilet-tiles/v1/ に生成
+npm run build                          # dist/ にタイルも含まれる
+```
+
+- GitHub Actions (`build-toilet-tiles.yml`) が週1回自動で再生成・コミットします
+- Netlify等には `dist/` フォルダごとデプロイしてください (タイルを含めるため)
+
 ## 技術スタック
 
 - React 18 + Vite

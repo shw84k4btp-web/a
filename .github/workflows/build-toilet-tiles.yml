@@ -1,0 +1,25 @@
+name: Build toilet data tiles
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: '0 18 * * 0' # 毎週月曜 3:00 JST
+
+jobs:
+  build-tiles:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Build tiles from Overpass
+        run: node scripts/build-toilet-tiles.mjs
+      - name: Commit updated tiles
+        run: |
+          git config user.name "toilet-tile-bot"
+          git config user.email "actions@github.com"
+          git add public/toilet-tiles
+          git diff --cached --quiet && echo "no changes" && exit 0
+          git commit -m "Update toilet data tiles ($(date -u +%Y-%m-%d))"
+          git push

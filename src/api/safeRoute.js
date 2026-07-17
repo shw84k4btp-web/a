@@ -12,7 +12,7 @@
 //   5. 補完しきれない区間は「ギャップ」として結果に含め、UI側で警告表示する
 
 import { haversine, getRouteViaWaypoints } from './routing.js';
-import { searchToiletsInBBox, searchToiletsInBBoxes } from './overpass.js';
+import { getToiletsInBBox, getToiletsInBBoxes } from './toiletData.js';
 
 const R = 6371000;
 const CORRIDOR_HALF_WIDTH_M = 700; // コリドー (進行方向の帯) の片側幅
@@ -118,7 +118,7 @@ async function fillGaps(gapPairs, rawCandidates, excludeIds) {
   if (unfilled.length > 0) {
     let fetched;
     try {
-      fetched = await searchToiletsInBBoxes(unfilled.map((i) => bboxes[i]));
+      fetched = await getToiletsInBBoxes(unfilled.map((i) => bboxes[i]));
     } catch {
       fetched = null; // ネットワーク失敗はギャップのまま
     }
@@ -238,7 +238,7 @@ export async function buildSafeRoute(origin, destination, travelMode = 'car', op
   let rawCandidates = [];
   let toiletDataUnavailable = false;
   try {
-    rawCandidates = await searchToiletsInBBox(bbox.south, bbox.west, bbox.north, bbox.east);
+    rawCandidates = await getToiletsInBBox(bbox.south, bbox.west, bbox.north, bbox.east);
   } catch {
     toiletDataUnavailable = true;
   }

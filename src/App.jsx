@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import { searchToilets } from './api/overpass.js';
+import { getToiletsAround } from './api/toiletData.js';
 import { getWalkingRoute, getRouteViaWaypoints, haversine } from './api/routing.js';
 import { geocodeAddress } from './api/geocode.js';
 import { getCurrentPosition } from './api/location.js';
@@ -197,7 +197,7 @@ export default function App() {
       setStatus({ type: 'loading', text: `半径 ${radius}m 以内のトイレを検索中…` });
       let found;
       try {
-        found = await searchToilets(o.lat, o.lng, radius);
+        found = await getToiletsAround(o.lat, o.lng, radius);
       } catch {
         if (seq !== searchSeqRef.current) return;
         setStatus({
@@ -323,6 +323,28 @@ export default function App() {
       routeLayerRef.current = null;
     }
   }, [selected]);
+
+  // ---- 目的地入力の先読みジオコーディング ----
+  // 入力が止まって900ms後に1回だけ座標を先読みしておく (キャッシュされるので
+  // 検索ボタンを押した瞬間には結果が手元にある)。キー入力ごとには飛ばさないので
+  // Nominatim の利用ポリシー (オートコンプリート禁止・1req/s) の範囲内
+  useEffect(() => {
+    const q = destInput.trim();
+    if (mode !== 'safe' || q.length < 3) return;
+    const id = setTimeout(() => {
+      geocodeAddress(q).catch(() => {});
+    }, 900);
+    return () => clearTimeout(id);
+  }, [destInput, mode]);
+
+  useEffect(() => {
+    const q = address.trim();
+    if (!locationDenied || q.length < 3) return;
+    const id = setTimeout(() => {
+      geocodeAddress(q).catch(() => {});
+    }, 900);
+    return () => clearTimeout(id);
+  }, [address, locationDenied]);
 
   // ---- 到着時刻が古くならないよう、ルート表示中は30秒ごとに再計算 ----
   const [, setClockTick] = useState(0);
