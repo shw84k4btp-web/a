@@ -100,6 +100,7 @@ npm run build                          # dist/ にタイルも含まれる
 
 - GitHub Actions (`build-toilet-tiles.yml`) が週1回自動で再生成・コミットします
 - Netlify等には `dist/` フォルダごとデプロイしてください (タイルを含めるため)
+- 生成タイルは © OpenStreetMap contributors のデータ ([ODbL](https://www.openstreetmap.org/copyright)) の再配布物です
 
 ## 技術スタック
 

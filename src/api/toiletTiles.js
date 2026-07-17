@@ -8,7 +8,9 @@ const TILES_BASE = 'toilet-tiles/v1'; // 相対パス (サブディレクトリ�
 const TILE_DEG = 0.1; // タイル1辺 (度)。日本では約11km×9km
 const MAX_TILES_PER_QUERY = 40; // これを超える広範囲はOverpassに任せる
 
-// meta.json の有無でタイル配信の有無を判定 (結果はセッション内で1回だけ確認)
+// meta.json の有無でタイル配信の有無を判定 (結果はセッション内で1回だけ確認)。
+// 注意: 起動直後の一時的な通信失敗でも「このセッションはタイル無効」となり
+// 以後は Overpass フォールバックで動き続ける (安全側に倒す意図的な設計)
 let metaPromise;
 function tilesMeta() {
   if (metaPromise === undefined) {

@@ -324,27 +324,11 @@ export default function App() {
     }
   }, [selected]);
 
-  // ---- 目的地入力の先読みジオコーディング ----
-  // 入力が止まって900ms後に1回だけ座標を先読みしておく (キャッシュされるので
-  // 検索ボタンを押した瞬間には結果が手元にある)。キー入力ごとには飛ばさないので
-  // Nominatim の利用ポリシー (オートコンプリート禁止・1req/s) の範囲内
-  useEffect(() => {
-    const q = destInput.trim();
-    if (mode !== 'safe' || q.length < 3) return;
-    const id = setTimeout(() => {
-      geocodeAddress(q).catch(() => {});
-    }, 900);
-    return () => clearTimeout(id);
-  }, [destInput, mode]);
-
-  useEffect(() => {
-    const q = address.trim();
-    if (!locationDenied || q.length < 3) return;
-    const id = setTimeout(() => {
-      geocodeAddress(q).catch(() => {});
-    }, 900);
-    return () => clearTimeout(id);
-  }, [address, locationDenied]);
+  // 注意: 目的地入力の「先読みジオコーディング」は実装しないこと。
+  // Nominatim の利用ポリシーは、ユーザーが送信していない途中入力への自動検索
+  // (オートコンプリート類) をクラスとして禁じている。デバウンスしても
+  // IME変換のたびに未完成クエリが飛ぶため不可 (レビューAIの指摘により撤去)。
+  // 送信時の重複は geocode.js のメモリキャッシュが排除する。
 
   // ---- 到着時刻が古くならないよう、ルート表示中は30秒ごとに再計算 ----
   const [, setClockTick] = useState(0);

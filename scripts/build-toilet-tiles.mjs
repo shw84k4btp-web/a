@@ -75,14 +75,25 @@ function parseElements(elements) {
 }
 
 async function fetchChunk(s, w, n, e, attempt = 1) {
-  const res = await fetch(OVERPASS, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      'User-Agent': 'toilet-finder-tile-builder (github actions)',
-    },
-    body: `data=${encodeURIComponent(chunkQuery(s, w, n, e))}`,
-  });
+  let res;
+  try {
+    res = await fetch(OVERPASS, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'toilet-finder-tile-builder (github actions)',
+      },
+      body: `data=${encodeURIComponent(chunkQuery(s, w, n, e))}`,
+    });
+  } catch (err) {
+    // ネットワーク例外 (接続断など) も HTTP エラーと同様にリトライする
+    if (attempt < 3) {
+      console.warn(`  ネットワークエラー: ${err.message} — ${30 * attempt}s 待って再試行`);
+      await sleep(30000 * attempt);
+      return fetchChunk(s, w, n, e, attempt + 1);
+    }
+    throw err;
+  }
   if (!res.ok) {
     if (attempt < 3) {
       console.warn(`  HTTP ${res.status} — ${30 * attempt}s 待って再試行`);
