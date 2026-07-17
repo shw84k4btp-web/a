@@ -12,7 +12,7 @@
 //   5. 補完しきれない区間は「ギャップ」として結果に含め、UI側で警告表示する
 
 import { haversine, getRouteViaWaypoints } from './routing.js';
-import { searchToiletsInBBox } from './overpass.js';
+import { searchToiletsInBBox, searchToiletsInBBoxes } from './overpass.js';
 
 const R = 6371000;
 const CORRIDOR_HALF_WIDTH_M = 700; // コリドー (進行方向の帯) の片側幅
@@ -83,23 +83,53 @@ function corridorBBox(a, b, halfWidthM) {
   return { south: south - latPad, west: west - lngPad, north: north + latPad, east: east + lngPad };
 }
 
-// 直進困難な区間 (ギャップ) を、狭い範囲での再検索で1件だけ補おうとする。
-// 失敗しても null を返すだけで例外は投げない (ギャップとして扱われる)。
-// excludeIds: 既にチェーンに入っているトイレのID群。bbox はギャップ両端の
-// 既存トイレ自身も含む矩形なので、除外しないと同一トイレを重複挿入してしまう。
-async function fillGap(fromPoint, toPoint, excludeIds) {
-  const bbox = corridorBBox(fromPoint, toPoint, GAP_FILL_HALF_WIDTH_M);
-  let candidates;
-  try {
-    candidates = await searchToiletsInBBox(bbox.south, bbox.west, bbox.north, bbox.east);
-  } catch {
-    return null;
-  }
-  const fresh = candidates.filter((c) => !excludeIds.has(c.id));
+function pointInBBox(p, b) {
+  return p.lat >= b.south && p.lat <= b.north && p.lng >= b.west && p.lng <= b.east;
+}
+
+// 候補プールからギャップ区間の補完トイレを1件選ぶ (区間中点への最近傍)
+function pickGapFiller(pool, fromPoint, toPoint, excludeIds) {
+  const fresh = pool.filter((c) => !excludeIds.has(c.id));
   if (!fresh.length) return null;
   const mid = { lat: (fromPoint.lat + toPoint.lat) / 2, lng: (fromPoint.lng + toPoint.lng) / 2 };
   fresh.sort((a, b) => haversine(mid, a) - haversine(mid, b));
   return fresh[0];
+}
+
+// 直進困難な区間 (ギャップ) 群を補完する候補を選ぶ。
+// ギャップの検索範囲はほぼコリドー矩形の内側なので、まず初回コリドー検索で
+// 取得済みの rawCandidates からローカルに補完し (ネットワーク不要)、
+// ローカルで埋まらないギャップだけを1本の統合 Overpass クエリで再検索する。
+// 失敗しても null を並べて返すだけで例外は投げない (ギャップとして扱われる)。
+// excludeIds: 既にチェーンに入っているトイレのID群 (重複挿入防止)。
+async function fillGaps(gapPairs, rawCandidates, excludeIds) {
+  const bboxes = gapPairs.map(([fromPoint, toPoint]) =>
+    corridorBBox(fromPoint, toPoint, GAP_FILL_HALF_WIDTH_M)
+  );
+
+  // 1) ローカル補完: 取得済み候補を各ギャップ bbox で絞る
+  const picks = gapPairs.map(([fromPoint, toPoint], i) => {
+    const pool = rawCandidates.filter((c) => pointInBBox(c, bboxes[i]));
+    return pickGapFiller(pool, fromPoint, toPoint, excludeIds);
+  });
+
+  // 2) ローカルで埋まらなかったギャップだけ、1本の統合クエリで再検索
+  const unfilled = picks.map((p, i) => (p ? -1 : i)).filter((i) => i >= 0);
+  if (unfilled.length > 0) {
+    let fetched;
+    try {
+      fetched = await searchToiletsInBBoxes(unfilled.map((i) => bboxes[i]));
+    } catch {
+      fetched = null; // ネットワーク失敗はギャップのまま
+    }
+    if (fetched) {
+      for (const i of unfilled) {
+        const pool = fetched.filter((c) => pointInBBox(c, bboxes[i]));
+        picks[i] = pickGapFiller(pool, gapPairs[i][0], gapPairs[i][1], excludeIds);
+      }
+    }
+  }
+  return picks;
 }
 
 // 貪欲法: 「まだ legMaxM 以内に置ける、最も進捗率 (t) の大きい候補」を
@@ -184,7 +214,7 @@ function buildLegs(routeResult, chain, thresholdSec) {
  *   approximate: boolean, toiletDataUnavailable: boolean
  * }>}
  */
-export async function buildSafeRoute(origin, destination, travelMode = 'car') {
+export async function buildSafeRoute(origin, destination, travelMode = 'car', opts = {}) {
   const modeCfg = TRAVEL_MODES[travelMode] || TRAVEL_MODES.car;
   const straightM = haversine(origin, destination);
   if (straightM < MIN_TRIP_STRAIGHT_M) {
@@ -217,7 +247,15 @@ export async function buildSafeRoute(origin, destination, travelMode = 'car') {
 
   let chain = buildGreedyChain(candidates, originFlat, destFlat, modeCfg.legMaxM);
   let waypoints = [origin, ...chain, destination];
-  let routeResult = await getRouteViaWaypoints(waypoints, travelMode);
+  // 経由地なしの場合、投機的に先行取得した直行ルート (opts.directRoute) を
+  // そのまま使えるので OSRM の2度目の呼び出しを省略できる
+  let routeResult = null;
+  if (chain.length === 0 && opts.directRoute) {
+    routeResult = await opts.directRoute.catch(() => null);
+  }
+  if (!routeResult) {
+    routeResult = await getRouteViaWaypoints(waypoints, travelMode);
+  }
   let legs = buildLegs(routeResult, chain, modeCfg.thresholdSec);
 
   // ギャップ区間を1回だけ補完してみる (再帰させず1パスに限定して挙動を予測可能にする)
@@ -225,8 +263,10 @@ export async function buildSafeRoute(origin, destination, travelMode = 'car') {
   if (gapIndices.length > 0 && chain.length < MAX_WAYPOINTS && !routeResult.approximate) {
     // 既にチェーンに入っているトイレを補完候補から除外する (重複挿入防止)
     const usedIds = new Set(chain.map((t) => t.id));
-    const fillResults = await Promise.all(
-      gapIndices.map((i) => fillGap(waypoints[i], waypoints[i + 1], usedIds))
+    const fillResults = await fillGaps(
+      gapIndices.map((i) => [waypoints[i], waypoints[i + 1]]),
+      rawCandidates,
+      usedIds
     );
     const newWaypoints = [...waypoints];
     let insertedCount = 0;

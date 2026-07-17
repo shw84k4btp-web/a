@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import { searchToilets } from './api/overpass.js';
-import { getWalkingRoute, haversine } from './api/routing.js';
+import { getWalkingRoute, getRouteViaWaypoints, haversine } from './api/routing.js';
 import { geocodeAddress } from './api/geocode.js';
 import { getCurrentPosition } from './api/location.js';
 import { buildSafeRoute, SafeRouteError, TRAVEL_MODES } from './api/safeRoute.js';
@@ -117,7 +117,9 @@ export default function App() {
 
   // ---- 「安心ルート」モード ----
   const safeRouteLayerRef = useRef(null); // 線 + 目的地ピン + 経由トイレピンをまとめて管理
+  const previewLayerRef = useRef(null); // 計算中に先行表示する直行ルートの薄い線
   const safeRouteSeqRef = useRef(0);
+  const [safePreview, setSafePreview] = useState(false); // 直行プレビュー表示中か
   const [destInput, setDestInput] = useState('');
   const [destGeocoding, setDestGeocoding] = useState(false);
   const [destination, setDestination] = useState(null); // {lat, lng, label}
@@ -336,9 +338,14 @@ export default function App() {
     setSafeRoute(null);
     setSafeRouteError(null);
     setSafeRouteLoading(false);
+    setSafePreview(false);
     if (safeRouteLayerRef.current) {
       safeRouteLayerRef.current.remove();
       safeRouteLayerRef.current = null;
+    }
+    if (previewLayerRef.current) {
+      previewLayerRef.current.remove();
+      previewLayerRef.current = null;
     }
   }, []);
 
@@ -348,16 +355,56 @@ export default function App() {
     setSafeRoute(null);
     setSafeRouteError(null);
     setSafeRouteLoading(true);
+    setSafePreview(false);
     if (safeRouteLayerRef.current) {
       safeRouteLayerRef.current.remove();
       safeRouteLayerRef.current = null;
     }
+    if (previewLayerRef.current) {
+      previewLayerRef.current.remove();
+      previewLayerRef.current = null;
+    }
+
+    const map = mapRef.current;
+    let fitted = false; // fitBounds は一度だけ (差し替え時に地図が跳ねないように)
+
+    // 投機的実行: 直行ルートを Overpass と並列に取得し、届き次第すぐ薄い線で
+    // 先行表示する (トイレ経由の確定ルートは後から差し替え)。
+    // 安全性チップは確定前には絶対に出さない (このアプリの価値は保証部分のため)。
+    const directPromise = getRouteViaWaypoints([o, d], mode);
+    directPromise
+      .then((direct) => {
+        if (seq !== safeRouteSeqRef.current) return; // 別の計算・閉じる操作で無効
+        if (!direct || direct.approximate) return; // 直線概算はプレビューに出さない
+        if (safeRouteLayerRef.current) return; // 確定ルートが先に描画済み
+        previewLayerRef.current = L.polyline(direct.coords, {
+          color: '#7baaf7',
+          weight: 5,
+          opacity: 0.8,
+          lineCap: 'round',
+          lineJoin: 'round',
+        }).addTo(map);
+        map.fitBounds(previewLayerRef.current.getBounds(), {
+          paddingTopLeft: [48, 140],
+          paddingBottomRight: [48, window.innerHeight * SHEET_SNAPS[1] + 40],
+        });
+        fitted = true;
+        setSafePreview(true);
+      })
+      .catch(() => {});
 
     let result;
     try {
-      result = await buildSafeRoute(o, d, mode);
+      // 経由地ゼロの場合は directPromise がそのまま再利用され OSRM 呼び出しが1回で済む
+      result = await buildSafeRoute(o, d, mode, { directRoute: directPromise });
     } catch (err) {
       if (seq !== safeRouteSeqRef.current) return; // 新しい計算・閉じる操作で無効化済み
+      safeRouteSeqRef.current++; // 遅れて届く直行プレビューも無効化する
+      setSafePreview(false);
+      if (previewLayerRef.current) {
+        previewLayerRef.current.remove();
+        previewLayerRef.current = null;
+      }
       setSafeRouteLoading(false);
       setSafeRouteError(
         err instanceof SafeRouteError ? err.message : '安心ルートの計算に失敗しました。通信状況を確認してください。'
@@ -367,8 +414,11 @@ export default function App() {
     if (seq !== safeRouteSeqRef.current) return;
     setSafeRoute(result);
     setSafeRouteLoading(false);
-
-    const map = mapRef.current;
+    setSafePreview(false);
+    if (previewLayerRef.current) {
+      previewLayerRef.current.remove();
+      previewLayerRef.current = null;
+    }
     const casing = L.polyline(result.coords, { color: '#ffffff', weight: 10, opacity: 0.9 });
     const line = L.polyline(result.coords, {
       color: '#1a73e8',
@@ -388,10 +438,13 @@ export default function App() {
       })
     );
     safeRouteLayerRef.current = L.layerGroup([casing, line, destMarker, ...waypointMarkers]).addTo(map);
-    map.fitBounds(line.getBounds(), {
-      paddingTopLeft: [48, 140],
-      paddingBottomRight: [48, window.innerHeight * SHEET_SNAPS[1] + 40],
-    });
+    // プレビューで既にフィット済みなら再フィットしない (差し替えで地図を跳ねさせない)
+    if (!fitted) {
+      map.fitBounds(line.getBounds(), {
+        paddingTopLeft: [48, 140],
+        paddingBottomRight: [48, window.innerHeight * SHEET_SNAPS[1] + 40],
+      });
+    }
   }, []);
 
   // ---- モード切替 (前のモードの選択状態・地図レイヤーを片付ける) ----
@@ -724,7 +777,10 @@ export default function App() {
 
               {safeRouteLoading && (
                 <div className="route-loading">
-                  <span className="spinner" /> 安心ルートを計算中…
+                  <span className="spinner" />{' '}
+                  {safePreview
+                    ? '直行ルートを表示中 — トイレ経由ルートを計算しています…'
+                    : '安心ルートを計算中…'}
                 </div>
               )}
 
