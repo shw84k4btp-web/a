@@ -135,8 +135,10 @@ function orderedEndpoints() {
 }
 
 // ---- ヘッジ付き実行 ----
-// まず先頭ミラー1本。HEDGE_DELAY_MS 応答がなければ2本目を追加 (同時は最大2本まで)。
-// 3本目は先行のどちらかが失敗したときのみ発火する。最初の成功で残りを中断する。
+// まず先頭ミラー1本。HEDGE_DELAY_MS 応答がなければ追加で1本発火する
+// (ヘッジタイマーは1回だけ登録。失敗時は次のミラーへ即座に置き換わるため、
+//  総発射数は最大3本になり得るが、同時実行は常に最大2本に収まる)。
+// 最初の成功で残りを中断する。
 function runQueryHedged(query) {
   const order = orderedEndpoints();
   return new Promise((resolve, reject) => {
@@ -186,12 +188,20 @@ function runQueryHedged(query) {
 }
 
 // ---- クエリ文字列キーのメモリキャッシュ (Promiseを保持して同時重複発火も排除) ----
+// 注意: Promise は複数の呼び出し元で共有される。将来 AbortSignal をこの層へ
+// 貫通させる場合、共有 Promise に呼び出し元の signal を直結してはいけない
+// (1人の中断が全員を巻き添えにする)。参照カウント式にすること。
 const queryCache = new Map(); // query -> { promise, expires }
 
 function runQuery(query) {
   const now = Date.now();
   const hit = queryCache.get(query);
-  if (hit && hit.expires > now) return hit.promise;
+  if (hit && hit.expires > now) {
+    // LRU: ヒットしたエントリを末尾へ移動 (Mapは挿入順なので削除→再挿入)
+    queryCache.delete(query);
+    queryCache.set(query, hit);
+    return hit.promise;
+  }
 
   const promise = runQueryHedged(query);
   queryCache.set(query, { promise, expires: now + CACHE_TTL_MS });
@@ -199,7 +209,7 @@ function runQuery(query) {
   promise.catch(() => {
     if (queryCache.get(query)?.promise === promise) queryCache.delete(query);
   });
-  // 簡易LRU: 上限を超えたら古いものから捨てる (Mapは挿入順)
+  // LRU: 上限を超えたら最も使われていないもの (先頭) から捨てる
   if (queryCache.size > CACHE_MAX_ENTRIES) {
     const oldest = queryCache.keys().next().value;
     queryCache.delete(oldest);

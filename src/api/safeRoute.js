@@ -214,8 +214,9 @@ function buildLegs(routeResult, chain, thresholdSec) {
  *   approximate: boolean, toiletDataUnavailable: boolean
  * }>}
  */
-export async function buildSafeRoute(origin, destination, travelMode = 'car', opts = {}) {
-  const modeCfg = TRAVEL_MODES[travelMode] || TRAVEL_MODES.car;
+// 出発地〜目的地の距離が安心ルートの対応範囲か検証する (範囲外は SafeRouteError)。
+// ネットワークリクエストを1本も発射する前に呼べるよう、単体でエクスポートする
+export function validateTripDistance(origin, destination) {
   const straightM = haversine(origin, destination);
   if (straightM < MIN_TRIP_STRAIGHT_M) {
     throw new SafeRouteError('TOO_CLOSE', '目的地が近すぎます。安心ルートは100m以上先の目的地向けです。');
@@ -223,6 +224,11 @@ export async function buildSafeRoute(origin, destination, travelMode = 'car', op
   if (straightM > MAX_TRIP_STRAIGHT_M) {
     throw new SafeRouteError('TOO_FAR', '目的地が遠すぎます (60km以内でご利用ください)。');
   }
+}
+
+export async function buildSafeRoute(origin, destination, travelMode = 'car', opts = {}) {
+  const modeCfg = TRAVEL_MODES[travelMode] || TRAVEL_MODES.car;
+  validateTripDistance(origin, destination);
 
   const refLatRad = toRad((origin.lat + destination.lat) / 2);
   const originFlat = flatten(origin, refLatRad);

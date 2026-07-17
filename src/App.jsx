@@ -4,7 +4,7 @@ import { searchToilets } from './api/overpass.js';
 import { getWalkingRoute, getRouteViaWaypoints, haversine } from './api/routing.js';
 import { geocodeAddress } from './api/geocode.js';
 import { getCurrentPosition } from './api/location.js';
-import { buildSafeRoute, SafeRouteError, TRAVEL_MODES } from './api/safeRoute.js';
+import { buildSafeRoute, validateTripDistance, SafeRouteError, TRAVEL_MODES } from './api/safeRoute.js';
 
 // 検索半径: 見つからなければ自動的に広げる (m)
 const SEARCH_RADII = [500, 1000, 2000, 4000];
@@ -367,6 +367,16 @@ export default function App() {
 
     const map = mapRef.current;
     let fitted = false; // fitBounds は一度だけ (差し替え時に地図が跳ねないように)
+
+    // 入力値検証はネットワークリクエストを1本も発射する前に行う
+    // (範囲外の目的地で公開OSRMに投機リクエストを無駄撃ちしないため)
+    try {
+      validateTripDistance(o, d);
+    } catch (err) {
+      setSafeRouteLoading(false);
+      setSafeRouteError(err instanceof SafeRouteError ? err.message : String(err));
+      return;
+    }
 
     // 投機的実行: 直行ルートを Overpass と並列に取得し、届き次第すぐ薄い線で
     // 先行表示する (トイレ経由の確定ルートは後から差し替え)。
