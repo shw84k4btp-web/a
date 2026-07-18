@@ -1,43 +1,46 @@
 /* =====================================================================
    デザイントークン (ライト / ダーク自動切替)
-   iOS のシステムカラーに寄せた配色。prefers-color-scheme で切り替わる。
+   iOS のシステムカラーに寄せた配色 + 全フローティング要素で共有する
+   「リキッドグラス」言語 (同じ縁・同じハイライト・同じ角丸スケール)。
    ===================================================================== */
 :root {
   color-scheme: light dark;
 
-  --accent: #0071e3;
-  --accent-strong: #0060c0;
-  --accent-tint: rgba(0, 113, 227, 0.12);
+  --accent: #0066d6; /* 白地で5.4:1 (AA余裕) */
+  --accent-strong: #0053b3;
+  --accent-tint: rgba(0, 102, 214, 0.1);
   --accent-contrast: #ffffff;
 
-  --ok: #1a8f43;
-  --ok-tint: rgba(26, 143, 67, 0.14);
-  --warn: #b7690a;
-  --warn-tint: rgba(224, 138, 32, 0.16);
+  --ok: #147a38; /* ok-tint 上で4.7:1 */
+  --ok-tint: rgba(26, 143, 67, 0.12);
+  --warn: #9a5600; /* warn-tint 上で5.0:1 */
+  --warn-tint: rgba(224, 138, 32, 0.14);
   --danger: #d63a2f;
 
   --text-1: #1c1c1e;
   --text-2: #55555c;
-  --text-3: #8a8a90;
+  --text-3: #6c6c72; /* 12px情報テキストでもAA (5.1:1) */
 
-  --sheet-bg: rgba(250, 250, 252, 0.98);
-  --card-fill: rgba(120, 120, 128, 0.10);
-  --card-fill-active: rgba(120, 120, 128, 0.20);
-  --hairline: rgba(60, 60, 67, 0.11);
+  /* シートもグラス族の一員として"わずかに"透過させ統一感を出す (blurは使わない) */
+  --sheet-bg: rgba(251, 251, 253, 0.94);
+  --card-fill: rgba(120, 120, 128, 0.08);
+  --card-fill-active: rgba(120, 120, 128, 0.18);
+  --hairline: rgba(60, 60, 67, 0.08);
 
-  --glass-bg: rgba(255, 255, 255, 0.68);
-  --glass-border: rgba(255, 255, 255, 0.7);
-  --glass-highlight: rgba(255, 255, 255, 0.85);
-  --field-bg: rgba(255, 255, 255, 0.9);
+  --glass-bg: rgba(255, 255, 255, 0.66);
+  --glass-border: rgba(255, 255, 255, 0.65);
+  --glass-highlight: rgba(255, 255, 255, 0.9);
+  --field-bg: rgba(120, 120, 128, 0.1);
 
-  --shadow-float: 0 6px 24px rgba(0, 0, 0, 0.14), 0 1px 3px rgba(0, 0, 0, 0.08);
-  --shadow-sheet: 0 -1px 0 var(--hairline), 0 -12px 40px rgba(0, 0, 0, 0.14);
-  --shadow-pin: 0 3px 10px rgba(0, 0, 0, 0.28);
+  /* ミニマル方針: 影は「拡散大・濃度小」の1系統のみ */
+  --shadow-float: 0 10px 34px rgba(0, 0, 0, 0.12);
+  --shadow-sheet: 0 -10px 40px rgba(0, 0, 0, 0.1);
+  --shadow-pin: 0 3px 10px rgba(0, 0, 0, 0.26);
 
-  --r-lg: 24px;
-  --r-md: 16px;
-  --r-sm: 12px;
-  --sheet-radius: 28px;
+  --r-lg: 26px;
+  --r-md: 18px;
+  --r-sm: 13px;
+  --sheet-radius: 30px;
 
   --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -45,32 +48,32 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --accent: #0a84ff;
-    --accent-strong: #409cff;
-    --accent-tint: rgba(10, 132, 255, 0.22);
+    --accent-strong: #6cb2ff; /* accent-tint 上で4.7:1 */
+    --accent-tint: rgba(10, 132, 255, 0.2);
     --accent-contrast: #ffffff;
 
     --ok: #34c759;
-    --ok-tint: rgba(48, 209, 88, 0.18);
+    --ok-tint: rgba(48, 209, 88, 0.16);
     --warn: #ff9f0a;
-    --warn-tint: rgba(255, 159, 10, 0.18);
+    --warn-tint: rgba(255, 159, 10, 0.16);
     --danger: #ff453a;
 
     --text-1: #f5f5f7;
     --text-2: #b0b0b8;
-    --text-3: #7c7c85;
+    --text-3: #8e8e96; /* 12px情報テキストでもAA (5.2:1) */
 
-    --sheet-bg: rgba(28, 28, 30, 0.98);
-    --card-fill: rgba(118, 118, 128, 0.20);
-    --card-fill-active: rgba(118, 118, 128, 0.34);
-    --hairline: rgba(255, 255, 255, 0.12);
+    --sheet-bg: rgba(28, 28, 30, 0.94);
+    --card-fill: rgba(118, 118, 128, 0.18);
+    --card-fill-active: rgba(118, 118, 128, 0.32);
+    --hairline: rgba(255, 255, 255, 0.09);
 
-    --glass-bg: rgba(38, 38, 42, 0.62);
-    --glass-border: rgba(255, 255, 255, 0.14);
-    --glass-highlight: rgba(255, 255, 255, 0.16);
-    --field-bg: rgba(118, 118, 128, 0.24);
+    --glass-bg: rgba(36, 36, 40, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.12);
+    --glass-highlight: rgba(255, 255, 255, 0.14);
+    --field-bg: rgba(118, 118, 128, 0.22);
 
-    --shadow-float: 0 8px 30px rgba(0, 0, 0, 0.5);
-    --shadow-sheet: 0 -1px 0 var(--hairline), 0 -14px 44px rgba(0, 0, 0, 0.55);
+    --shadow-float: 0 10px 36px rgba(0, 0, 0, 0.5);
+    --shadow-sheet: 0 -12px 44px rgba(0, 0, 0, 0.5);
     --shadow-pin: 0 3px 12px rgba(0, 0, 0, 0.55);
   }
 }
@@ -88,11 +91,14 @@ body,
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Hiragino Kaku Gothic ProN',
+  /* 日本語はヒラギノ角ゴ (Hiragino Sans) を最優先。W3/W6の太さ階調が美しく
+     iOSの標準UIと同じ字面になる。数字・欧文はSF (system-ui) が受け持つ */
+  font-family: system-ui, -apple-system, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN',
     'Noto Sans JP', Meiryo, sans-serif;
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  line-height: 1.45;
   /* iOS: タップハイライトとダブルタップズームを無効化してアプリらしい操作感に */
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
@@ -123,12 +129,13 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-/* ================= リキッドグラス共通 ================= */
+/* ================= リキッドグラス共通言語 ================= */
+/* すべてのフローティング要素が同じ縁 (0.5pxグラスボーダー)・同じ内側ハイライト・
+   同じ影を纏う。blur は描画コストが高い (iPhoneで重い) ため小面積の要素のみ。 */
 .glass {
   background: var(--glass-bg);
-  /* blur は描画コストが高い (iPhoneで重い) ため控えめに。大面積のシートでは無効化 */
-  -webkit-backdrop-filter: blur(20px) saturate(1.6);
-  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(22px) saturate(1.7);
+  backdrop-filter: blur(22px) saturate(1.7);
   border: 0.5px solid var(--glass-border);
   box-shadow: var(--shadow-float), inset 0 0.5px 0 var(--glass-highlight);
 }
@@ -142,15 +149,14 @@ body {
   z-index: 1001;
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 10px 12px 10px 14px;
+  gap: 12px;
+  padding: 9px 8px 9px 16px;
   border-radius: var(--r-lg);
 }
 
 .topbar-icon {
-  font-size: 24px;
+  font-size: 23px;
   line-height: 1;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
 }
 
 .topbar-text {
@@ -159,17 +165,15 @@ body {
 }
 
 .topbar-title {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: -0.01em;
 }
 
 .topbar-status {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 1px;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--text-2);
   overflow: hidden;
 }
@@ -197,7 +201,7 @@ body {
   border: none;
   background: none;
   color: var(--accent);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   padding: 2px 4px;
@@ -205,8 +209,9 @@ body {
 
 .icon-btn {
   flex-shrink: 0;
-  width: 36px;
-  height: 36px;
+  /* iOS HIG: タップターゲットは44pt以上 */
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -236,22 +241,21 @@ body {
 
 .mode-toggle button {
   flex: 1;
+  min-height: 44px; /* iOS HIG タップターゲット */
   padding: 9px 10px;
   border: none;
-  border-radius: 12px;
+  border-radius: calc(var(--r-md) - 4px);
   background: none;
   color: var(--text-2);
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
-  letter-spacing: -0.01em;
   cursor: pointer;
-  transition: color 0.2s, background 0.3s var(--ease-spring), box-shadow 0.2s;
+  transition: color 0.2s, background 0.3s var(--ease-spring);
 }
 
 .mode-toggle button.active {
   background: var(--accent);
   color: var(--accent-contrast);
-  box-shadow: 0 2px 8px var(--accent-tint);
 }
 
 /* ================= 住所入力 ================= */
@@ -262,17 +266,17 @@ body {
   right: max(16px, env(safe-area-inset-right));
   z-index: 1001;
   display: flex;
-  gap: 8px;
-  padding: 7px;
+  gap: 6px;
+  padding: 6px;
   border-radius: var(--r-md);
 }
 
 .address-form input {
   flex: 1;
   min-width: 0;
-  padding: 11px 14px;
+  padding: 11px 15px;
   border: none;
-  border-radius: 12px;
+  border-radius: calc(var(--r-md) - 6px);
   background: var(--field-bg);
   color: var(--text-1);
   font-size: 16px; /* 16px 未満だと iOS Safari がフォーカス時に自動ズームする */
@@ -288,9 +292,10 @@ body {
 }
 
 .address-form button {
-  padding: 11px 18px;
+  min-height: 44px; /* iOS HIG タップターゲット */
+  padding: 11px 19px;
   border: none;
-  border-radius: 12px;
+  border-radius: calc(var(--r-md) - 6px);
   background: var(--accent);
   color: var(--accent-contrast);
   font-size: 15px;
@@ -434,15 +439,17 @@ body {
   bottom: 0;
   z-index: 1002;
   /* 画面の大部分を覆う要素の backdrop-filter は、地図が動くたびに全域の
-     再ブラーが走り iPhone で重くなるため、シートは不透明背景にする */
+     再ブラーが走り iPhone で重くなるため、シートはブラー無し。わずかな
+     透過とグラスと同じ縁・ハイライトで質感だけ揃える */
   background: var(--sheet-bg);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   display: flex;
   flex-direction: column;
   border-radius: var(--sheet-radius) var(--sheet-radius) 0 0;
-  border-top: 0.5px solid var(--hairline);
-  box-shadow: var(--shadow-sheet);
+  border: none; /* .glass の全周ボーダーを明示的に打ち消す */
+  border-top: 0.5px solid var(--glass-border);
+  box-shadow: var(--shadow-sheet), inset 0 0.5px 0 var(--glass-highlight);
   padding-bottom: env(safe-area-inset-bottom);
   transition: height 0.34s var(--ease-spring);
   will-change: height;
@@ -463,15 +470,14 @@ body {
   margin: 0 auto;
   border-radius: 3px;
   background: var(--text-3);
-  opacity: 0.5;
+  opacity: 0.4;
 }
 
 .sheet-title {
   flex-shrink: 0;
-  padding: 4px 20px 12px;
-  font-size: 20px;
+  padding: 6px 22px 12px;
+  font-size: 22px;
   font-weight: 700;
-  letter-spacing: -0.02em;
 }
 
 .sheet-scroll {
@@ -480,16 +486,16 @@ body {
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
-  padding: 0 12px 12px;
+  padding: 0 14px 14px;
 }
 
 /* ---- 一覧の行 ---- */
 .toilet-row {
   display: flex;
   align-items: center;
-  gap: 13px;
+  gap: 14px;
   width: 100%;
-  padding: 11px 10px;
+  padding: 13px 10px;
   border: none;
   border-radius: var(--r-md);
   background: none;
@@ -500,7 +506,7 @@ body {
   transition: background 0.15s;
   /* 長いリストは画面外の行の描画をスキップする */
   content-visibility: auto;
-  contain-intrinsic-size: auto 64px;
+  contain-intrinsic-size: auto 70px;
 }
 
 .toilet-row:active { background: var(--card-fill-active); }
@@ -509,14 +515,14 @@ body {
 
 .toilet-row-icon {
   flex-shrink: 0;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 13px;
+  border-radius: 14px;
   background: var(--accent-tint);
-  font-size: 20px;
+  font-size: 21px;
 }
 
 .toilet-row-main {
@@ -528,16 +534,15 @@ body {
 }
 
 .toilet-row-name {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
-  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .toilet-row-tags {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-3);
   white-space: nowrap;
   overflow: hidden;
@@ -553,13 +558,13 @@ body {
 }
 
 .toilet-row-dist strong {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--accent);
 }
 
 .toilet-row-dist span:last-child {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-3);
 }
 
@@ -569,20 +574,19 @@ body {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 0 20px 10px;
+  padding: 2px 22px 10px;
 }
 
 .route-head-main { flex: 1; min-width: 0; }
 
 .route-dest {
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 700;
-  letter-spacing: -0.02em;
 }
 
 .route-tags {
   margin-top: 3px;
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--text-3);
 }
 
@@ -590,8 +594,8 @@ body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 20px;
-  font-size: 14px;
+  padding: 10px 22px;
+  font-size: 15px;
   color: var(--accent);
 }
 
@@ -601,40 +605,39 @@ body {
   align-items: baseline;
   flex-wrap: wrap;
   gap: 10px;
-  padding: 2px 20px 12px;
+  padding: 2px 22px 12px;
 }
 
 .route-time {
-  font-size: 30px;
+  font-size: 34px;
   font-weight: 800;
   color: var(--ok);
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em; /* 大きな数字のみ字間を締める (和文本文には使わない) */
 }
 
 .route-sub {
-  font-size: 14px;
+  font-size: 15px;
   color: var(--text-2);
 }
 
 .route-sub strong { color: var(--text-1); font-weight: 700; }
 
 .route-warn {
-  margin: 0 20px 10px;
-  padding: 9px 13px;
+  margin: 0 22px 10px;
+  padding: 10px 14px;
   border-radius: var(--r-sm);
   background: var(--warn-tint);
-  font-size: 12.5px;
+  font-size: 13px;
   color: var(--warn);
 }
 
 /* ---- 安心ルート: 安全性サマリー ---- */
 .safety-chip {
-  margin: 0 20px 12px;
-  padding: 10px 13px;
+  margin: 0 22px 12px;
+  padding: 11px 14px;
   border-radius: var(--r-sm);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
-  letter-spacing: -0.01em;
 }
 
 .safety-chip.ok {
@@ -651,22 +654,22 @@ body {
 .leg-row {
   display: flex;
   align-items: center;
-  gap: 13px;
-  padding: 11px 12px;
+  gap: 14px;
+  padding: 12px;
 }
 
 .leg-row + .leg-row { border-top: 0.5px solid var(--hairline); }
 
 .leg-icon {
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   background: var(--accent-tint);
-  color: var(--accent);
+  color: var(--accent-strong); /* tint背景上でもAAを満たす濃さ */
   font-size: 15px;
   font-weight: 700;
 }
@@ -685,7 +688,7 @@ body {
 }
 
 .leg-name {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -693,39 +696,39 @@ body {
 }
 
 .leg-warn {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--warn);
 }
 
 .leg-time {
   flex-shrink: 0;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text-2);
 }
 
 /* ---- ターンバイターン ---- */
-.steps { padding: 0 8px 12px; }
+.steps { padding: 0 10px 14px; }
 
 .step-row {
   display: flex;
   align-items: center;
-  gap: 13px;
-  padding: 11px 12px;
+  gap: 14px;
+  padding: 12px;
 }
 
 .step-row + .step-row { border-top: 0.5px solid var(--hairline); }
 
 .step-arrow {
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   background: var(--accent-tint);
-  color: var(--accent);
+  color: var(--accent-strong); /* tint背景上でもAAを満たす濃さ */
   font-size: 17px;
   font-weight: 700;
 }
@@ -733,19 +736,19 @@ body {
 .step-text {
   flex: 1;
   min-width: 0;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .step-dist {
   flex-shrink: 0;
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-3);
 }
 
 /* Leaflet の帰属表記 (地図の上に常時載るためブラーは使わない) */
 .leaflet-control-attribution {
-  background: var(--glass-bg) !important;
-  color: var(--text-3) !important;
+  background: var(--sheet-bg) !important; /* 地図の混雑に左右されない不透明地 */
+  color: var(--text-2) !important;
   border-radius: 8px 0 0 0;
   font-size: 10px !important;
 }
@@ -756,31 +759,43 @@ body {
   flex-shrink: 0;
   display: flex;
   gap: 6px;
-  padding: 0 20px 12px;
+  padding: 0 22px 12px;
 }
 
 .travel-tabs button {
   flex: 1;
+  min-height: 44px; /* iOS HIG タップターゲット */
   padding: 9px 0;
-  border: 0.5px solid var(--hairline);
+  border: none; /* ミニマル: 枠線ではなく塗りで状態を示す */
   border-radius: 999px;
   background: var(--card-fill);
   color: var(--text-2);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.1s;
+  transition: background 0.2s, color 0.2s, transform 0.1s;
 }
 
 .travel-tabs button:active { transform: scale(0.96); }
 
 .travel-tabs button.active {
   background: var(--accent-tint);
-  border-color: transparent;
-  color: var(--accent);
+  color: var(--accent-strong); /* tint背景上でもAAを満たす濃さ */
 }
 
 .travel-tabs button:disabled { opacity: 0.5; }
+
+/* キーボード/スイッチコントロール操作時のフォーカスリング */
+.icon-btn:focus-visible,
+.link-btn:focus-visible,
+.fab:focus-visible,
+.mode-toggle button:focus-visible,
+.travel-tabs button:focus-visible,
+.address-form button:focus-visible,
+.toilet-row:focus-visible {
+  outline: 2.5px solid var(--accent);
+  outline-offset: 2px;
+}
 
 /* モーションを控えたいユーザー設定を尊重する */
 @media (prefers-reduced-motion: reduce) {
