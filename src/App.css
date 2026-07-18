@@ -1,3 +1,80 @@
+/* =====================================================================
+   デザイントークン (ライト / ダーク自動切替)
+   iOS のシステムカラーに寄せた配色。prefers-color-scheme で切り替わる。
+   ===================================================================== */
+:root {
+  color-scheme: light dark;
+
+  --accent: #0071e3;
+  --accent-strong: #0060c0;
+  --accent-tint: rgba(0, 113, 227, 0.12);
+  --accent-contrast: #ffffff;
+
+  --ok: #1a8f43;
+  --ok-tint: rgba(26, 143, 67, 0.14);
+  --warn: #b7690a;
+  --warn-tint: rgba(224, 138, 32, 0.16);
+  --danger: #d63a2f;
+
+  --text-1: #1c1c1e;
+  --text-2: #55555c;
+  --text-3: #8a8a90;
+
+  --sheet-bg: rgba(250, 250, 252, 0.98);
+  --card-fill: rgba(120, 120, 128, 0.10);
+  --card-fill-active: rgba(120, 120, 128, 0.20);
+  --hairline: rgba(60, 60, 67, 0.11);
+
+  --glass-bg: rgba(255, 255, 255, 0.68);
+  --glass-border: rgba(255, 255, 255, 0.7);
+  --glass-highlight: rgba(255, 255, 255, 0.85);
+  --field-bg: rgba(255, 255, 255, 0.9);
+
+  --shadow-float: 0 6px 24px rgba(0, 0, 0, 0.14), 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-sheet: 0 -1px 0 var(--hairline), 0 -12px 40px rgba(0, 0, 0, 0.14);
+  --shadow-pin: 0 3px 10px rgba(0, 0, 0, 0.28);
+
+  --r-lg: 24px;
+  --r-md: 16px;
+  --r-sm: 12px;
+  --sheet-radius: 28px;
+
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: #0a84ff;
+    --accent-strong: #409cff;
+    --accent-tint: rgba(10, 132, 255, 0.22);
+    --accent-contrast: #ffffff;
+
+    --ok: #34c759;
+    --ok-tint: rgba(48, 209, 88, 0.18);
+    --warn: #ff9f0a;
+    --warn-tint: rgba(255, 159, 10, 0.18);
+    --danger: #ff453a;
+
+    --text-1: #f5f5f7;
+    --text-2: #b0b0b8;
+    --text-3: #7c7c85;
+
+    --sheet-bg: rgba(28, 28, 30, 0.98);
+    --card-fill: rgba(118, 118, 128, 0.20);
+    --card-fill-active: rgba(118, 118, 128, 0.34);
+    --hairline: rgba(255, 255, 255, 0.12);
+
+    --glass-bg: rgba(38, 38, 42, 0.62);
+    --glass-border: rgba(255, 255, 255, 0.14);
+    --glass-highlight: rgba(255, 255, 255, 0.16);
+    --field-bg: rgba(118, 118, 128, 0.24);
+
+    --shadow-float: 0 8px 30px rgba(0, 0, 0, 0.5);
+    --shadow-sheet: 0 -1px 0 var(--hairline), 0 -14px 44px rgba(0, 0, 0, 0.55);
+    --shadow-pin: 0 3px 12px rgba(0, 0, 0, 0.55);
+  }
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -11,15 +88,18 @@ body,
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Kaku Gothic ProN', 'Noto Sans JP',
-    Meiryo, sans-serif;
-  /* iOS: タップ時のハイライトとダブルタップズームを無効化してアプリらしい操作感に */
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Hiragino Kaku Gothic ProN',
+    'Noto Sans JP', Meiryo, sans-serif;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* iOS: タップハイライトとダブルタップズームを無効化してアプリらしい操作感に */
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   overscroll-behavior: none;
   -webkit-user-select: none;
   user-select: none;
-  color: #1c1c1e;
+  color: var(--text-1);
 }
 
 .app {
@@ -34,37 +114,43 @@ body {
   inset: 0;
 }
 
+/* 数字 (所要時間・距離・到着時刻) は等幅にして表示のガタつきを防ぐ */
+.route-time,
+.route-sub,
+.toilet-row-dist,
+.leg-time,
+.step-dist {
+  font-variant-numeric: tabular-nums;
+}
+
 /* ================= リキッドグラス共通 ================= */
 .glass {
-  background: rgba(255, 255, 255, 0.72);
-  /* blur半径とsaturateは描画コストに直結する (iPhoneで重くなる) ため控えめに。
-     大面積の要素 (ボトムシート) では backdrop-filter 自体を無効化している */
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.65);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.16),
-    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  background: var(--glass-bg);
+  /* blur は描画コストが高い (iPhoneで重い) ため控えめに。大面積のシートでは無効化 */
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+  border: 0.5px solid var(--glass-border);
+  box-shadow: var(--shadow-float), inset 0 0.5px 0 var(--glass-highlight);
 }
 
 /* ================= 上部バー ================= */
 .topbar {
   position: absolute;
-  top: calc(12px + env(safe-area-inset-top));
-  /* 横向き時のノッチ (左右のセーフエリア) にも対応 */
+  top: calc(10px + env(safe-area-inset-top));
   left: max(12px, env(safe-area-inset-left));
   right: max(12px, env(safe-area-inset-right));
   z-index: 1001;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
-  border-radius: 22px;
+  gap: 11px;
+  padding: 10px 12px 10px 14px;
+  border-radius: var(--r-lg);
 }
 
 .topbar-icon {
-  font-size: 26px;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.2));
+  font-size: 24px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
 }
 
 .topbar-text {
@@ -73,24 +159,25 @@ body {
 }
 
 .topbar-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
-  letter-spacing: 0.02em;
+  letter-spacing: -0.01em;
 }
 
 .topbar-status {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
-  color: #3c3c43;
+  margin-top: 1px;
+  font-size: 12.5px;
+  color: var(--text-2);
   overflow: hidden;
 }
 
-.status-error { color: #c62828; }
-.status-warn { color: #9a6b00; }
-.status-ok { color: #1b7f3b; }
-.status-loading { color: #1a56c4; }
+.status-error { color: var(--danger); }
+.status-warn { color: var(--warn); }
+.status-ok { color: var(--ok); }
+.status-loading { color: var(--accent); }
 
 .spinner {
   width: 13px;
@@ -99,7 +186,7 @@ body {
   border: 2px solid currentColor;
   border-top-color: transparent;
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  animation: spin 0.7s linear infinite;
 }
 
 @keyframes spin {
@@ -109,8 +196,8 @@ body {
 .link-btn {
   border: none;
   background: none;
-  color: #1a73e8;
-  font-size: 12px;
+  color: var(--accent);
+  font-size: 12.5px;
   font-weight: 700;
   cursor: pointer;
   padding: 2px 4px;
@@ -118,48 +205,53 @@ body {
 
 .icon-btn {
   flex-shrink: 0;
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
   border: none;
   border-radius: 50%;
-  background: rgba(120, 120, 128, 0.14);
-  color: #1c1c1e;
-  font-size: 17px;
+  background: var(--card-fill);
+  color: var(--text-1);
+  font-size: 16px;
   cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
 }
 
+.icon-btn:active { transform: scale(0.92); }
 .icon-btn:disabled { opacity: 0.4; }
 
-/* ================= モード切替 ================= */
+/* ================= モード切替 (セグメンテッドコントロール) ================= */
 .mode-toggle {
   position: absolute;
   left: max(16px, env(safe-area-inset-left));
   right: max(16px, env(safe-area-inset-right));
   z-index: 1001;
   display: flex;
-  gap: 6px;
-  padding: 6px;
-  border-radius: 18px;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--r-md);
 }
 
 .mode-toggle button {
   flex: 1;
   padding: 9px 10px;
   border: none;
-  border-radius: 13px;
+  border-radius: 12px;
   background: none;
-  color: #3c3c43;
+  color: var(--text-2);
   font-size: 14px;
   font-weight: 600;
+  letter-spacing: -0.01em;
   cursor: pointer;
+  transition: color 0.2s, background 0.3s var(--ease-spring), box-shadow 0.2s;
 }
 
 .mode-toggle button.active {
-  background: #1a73e8;
-  color: #fff;
+  background: var(--accent);
+  color: var(--accent-contrast);
+  box-shadow: 0 2px 8px var(--accent-tint);
 }
 
 /* ================= 住所入力 ================= */
@@ -171,54 +263,64 @@ body {
   z-index: 1001;
   display: flex;
   gap: 8px;
-  padding: 8px;
-  border-radius: 18px;
+  padding: 7px;
+  border-radius: var(--r-md);
 }
 
 .address-form input {
   flex: 1;
   min-width: 0;
-  padding: 10px 14px;
+  padding: 11px 14px;
   border: none;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.8);
+  background: var(--field-bg);
+  color: var(--text-1);
   font-size: 16px; /* 16px 未満だと iOS Safari がフォーカス時に自動ズームする */
   -webkit-user-select: text;
   user-select: text;
+  transition: box-shadow 0.2s;
 }
 
-.address-form input:focus { outline: 2px solid #1a73e8; }
+.address-form input::placeholder { color: var(--text-3); }
+.address-form input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2.5px var(--accent);
+}
 
 .address-form button {
-  padding: 10px 18px;
+  padding: 11px 18px;
   border: none;
   border-radius: 12px;
-  background: #1a73e8;
-  color: #fff;
+  background: var(--accent);
+  color: var(--accent-contrast);
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
+  transition: transform 0.1s, opacity 0.2s;
 }
 
-.address-form button:disabled { opacity: 0.5; }
+.address-form button:active { transform: scale(0.96); }
+.address-form button:disabled { opacity: 0.45; }
 
-/* ================= 現在地ボタン ================= */
+/* ================= 現在地ボタン (FAB) ================= */
 .fab {
   position: absolute;
   right: max(16px, env(safe-area-inset-right));
   z-index: 1001;
-  width: 52px;
-  height: 52px;
+  width: 50px;
+  height: 50px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.65);
-  color: #1a73e8;
-  font-size: 22px;
+  border: 0.5px solid var(--glass-border);
+  color: var(--accent);
+  font-size: 21px;
   cursor: pointer;
-  transition: bottom 0.25s cubic-bezier(0.25, 1, 0.4, 1);
+  transition: bottom 0.3s var(--ease-spring), transform 0.1s;
 }
+
+.fab:active { transform: scale(0.92); }
 
 /* ================= マーカー ================= */
 .user-marker-dot {
@@ -226,22 +328,22 @@ body {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #1a73e8;
+  background: var(--accent);
   border: 3px solid #fff;
-  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.4);
 }
 
 .user-marker-pulse {
   position: absolute;
   inset: -14px;
   border-radius: 50%;
-  background: rgba(26, 115, 232, 0.2);
+  background: var(--accent-tint);
   animation: pulse 2.4s ease-out infinite;
 }
 
 @keyframes pulse {
   0% { transform: scale(0.5); opacity: 1; }
-  100% { transform: scale(1.3); opacity: 0; }
+  100% { transform: scale(1.35); opacity: 0; }
 }
 
 .toilet-marker-pin {
@@ -253,20 +355,20 @@ body {
   font-size: 18px;
   /* マーカーは数十個並ぶため backdrop-filter は使わない (個数分ブラー領域が増えて重い) */
   background: #fff;
-  border: 2px solid #1a73e8;
+  border: 2px solid var(--accent);
   border-radius: 50% 50% 50% 6px;
   transform: rotate(-45deg);
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
-  transition: transform 0.15s;
+  box-shadow: var(--shadow-pin);
+  transition: transform 0.18s var(--ease-spring);
 }
 
 .toilet-marker-pin > * { transform: rotate(45deg); }
 
 .toilet-marker-pin.selected {
-  background: #1a73e8;
+  background: var(--accent);
   border-color: #fff;
-  transform: rotate(-45deg) scale(1.18);
-  box-shadow: 0 0 0 5px rgba(26, 115, 232, 0.3), 0 3px 10px rgba(0, 0, 0, 0.3);
+  transform: rotate(-45deg) scale(1.2);
+  box-shadow: 0 0 0 5px var(--accent-tint), var(--shadow-pin);
 }
 
 /* ---- 安心ルートの経由トイレ (番号バッジ付き) ---- */
@@ -278,16 +380,16 @@ body {
   width: 36px;
   height: 36px;
   font-size: 17px;
-  background: #1a73e8;
+  background: var(--accent);
   border: 2px solid #fff;
   border-radius: 50% 50% 50% 6px;
   transform: rotate(-45deg);
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-pin);
 }
 
 .waypoint-pin > * { transform: rotate(45deg); }
 
-.waypoint-pin.gap { background: #e8710a; }
+.waypoint-pin.gap { background: var(--warn); }
 
 .waypoint-badge {
   position: absolute;
@@ -315,11 +417,11 @@ body {
   width: 38px;
   height: 38px;
   font-size: 19px;
-  background: #ea4335;
+  background: var(--danger);
   border: 2px solid #fff;
   border-radius: 50% 50% 50% 6px;
   transform: rotate(-45deg);
-  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow-pin);
 }
 
 .dest-pin > * { transform: rotate(45deg); }
@@ -331,18 +433,18 @@ body {
   right: 0;
   bottom: 0;
   z-index: 1002;
-  /* 画面の大部分を覆う要素の backdrop-filter は、下の地図が動くたびに
-     全域の再ブラーが走り iPhone で极端に重くなるため、シートだけは
-     ほぼ不透明な背景にしてブラーを無効化する (Google マップと同じ方式) */
-  background: rgba(252, 252, 254, 0.96);
+  /* 画面の大部分を覆う要素の backdrop-filter は、地図が動くたびに全域の
+     再ブラーが走り iPhone で重くなるため、シートは不透明背景にする */
+  background: var(--sheet-bg);
   -webkit-backdrop-filter: none;
   backdrop-filter: none;
   display: flex;
   flex-direction: column;
-  border-radius: 26px 26px 0 0;
-  border-bottom: none;
+  border-radius: var(--sheet-radius) var(--sheet-radius) 0 0;
+  border-top: 0.5px solid var(--hairline);
+  box-shadow: var(--shadow-sheet);
   padding-bottom: env(safe-area-inset-bottom);
-  transition: height 0.25s cubic-bezier(0.25, 1, 0.4, 1);
+  transition: height 0.34s var(--ease-spring);
   will-change: height;
 }
 
@@ -350,24 +452,26 @@ body {
 
 .sheet-handle-area {
   flex-shrink: 0;
-  padding: 10px 0 6px;
+  padding: 9px 0 5px;
   cursor: grab;
   touch-action: none; /* ドラッグ中に地図やスクロールへジェスチャを取られない */
 }
 
 .sheet-handle {
-  width: 42px;
+  width: 38px;
   height: 5px;
   margin: 0 auto;
   border-radius: 3px;
-  background: rgba(60, 60, 67, 0.3);
+  background: var(--text-3);
+  opacity: 0.5;
 }
 
 .sheet-title {
   flex-shrink: 0;
-  padding: 2px 20px 10px;
-  font-size: 16px;
+  padding: 4px 20px 12px;
+  font-size: 20px;
   font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .sheet-scroll {
@@ -383,31 +487,36 @@ body {
 .toilet-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 13px;
   width: 100%;
-  padding: 12px 10px;
+  padding: 11px 10px;
   border: none;
-  border-radius: 16px;
+  border-radius: var(--r-md);
   background: none;
   text-align: left;
   font: inherit;
+  color: var(--text-1);
   cursor: pointer;
+  transition: background 0.15s;
+  /* 長いリストは画面外の行の描画をスキップする */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 64px;
 }
 
-.toilet-row:active { background: rgba(120, 120, 128, 0.16); }
+.toilet-row:active { background: var(--card-fill-active); }
 
-.toilet-row + .toilet-row { border-top: 0.5px solid rgba(60, 60, 67, 0.15); }
+.toilet-row + .toilet-row { border-top: 0.5px solid var(--hairline); }
 
 .toilet-row-icon {
   flex-shrink: 0;
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 50%;
-  background: rgba(26, 115, 232, 0.12);
-  font-size: 19px;
+  border-radius: 13px;
+  background: var(--accent-tint);
+  font-size: 20px;
 }
 
 .toilet-row-main {
@@ -421,6 +530,7 @@ body {
 .toilet-row-name {
   font-size: 15px;
   font-weight: 600;
+  letter-spacing: -0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -428,7 +538,7 @@ body {
 
 .toilet-row-tags {
   font-size: 12px;
-  color: #6d6d72;
+  color: var(--text-3);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -444,12 +554,13 @@ body {
 
 .toilet-row-dist strong {
   font-size: 15px;
-  color: #1a73e8;
+  font-weight: 700;
+  color: var(--accent);
 }
 
 .toilet-row-dist span:last-child {
   font-size: 12px;
-  color: #6d6d72;
+  color: var(--text-3);
 }
 
 /* ---- ルート案内 ---- */
@@ -458,20 +569,21 @@ body {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  padding: 0 20px 8px;
+  padding: 0 20px 10px;
 }
 
 .route-head-main { flex: 1; min-width: 0; }
 
 .route-dest {
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .route-tags {
-  margin-top: 2px;
-  font-size: 12px;
-  color: #6d6d72;
+  margin-top: 3px;
+  font-size: 12.5px;
+  color: var(--text-3);
 }
 
 .route-loading {
@@ -480,7 +592,7 @@ body {
   gap: 8px;
   padding: 10px 20px;
   font-size: 14px;
-  color: #1a56c4;
+  color: var(--accent);
 }
 
 .route-summary {
@@ -489,60 +601,61 @@ body {
   align-items: baseline;
   flex-wrap: wrap;
   gap: 10px;
-  padding: 4px 20px 10px;
+  padding: 2px 20px 12px;
 }
 
 .route-time {
-  font-size: 26px;
+  font-size: 30px;
   font-weight: 800;
-  color: #1b7f3b;
-  letter-spacing: -0.01em;
+  color: var(--ok);
+  letter-spacing: -0.03em;
 }
 
 .route-sub {
   font-size: 14px;
-  color: #3c3c43;
+  color: var(--text-2);
 }
 
-.route-sub strong { color: #1c1c1e; }
+.route-sub strong { color: var(--text-1); font-weight: 700; }
 
 .route-warn {
-  margin: 0 20px 8px;
-  padding: 8px 12px;
-  border-radius: 12px;
-  background: rgba(255, 204, 0, 0.25);
-  font-size: 12px;
-  color: #7a5200;
+  margin: 0 20px 10px;
+  padding: 9px 13px;
+  border-radius: var(--r-sm);
+  background: var(--warn-tint);
+  font-size: 12.5px;
+  color: var(--warn);
 }
 
 /* ---- 安心ルート: 安全性サマリー ---- */
 .safety-chip {
-  margin: 0 20px 10px;
-  padding: 8px 12px;
-  border-radius: 12px;
+  margin: 0 20px 12px;
+  padding: 10px 13px;
+  border-radius: var(--r-sm);
   font-size: 13px;
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .safety-chip.ok {
-  background: rgba(52, 168, 83, 0.15);
-  color: #1b7f3b;
+  background: var(--ok-tint);
+  color: var(--ok);
 }
 
 .safety-chip.warn {
-  background: rgba(232, 113, 10, 0.15);
-  color: #9a4b00;
+  background: var(--warn-tint);
+  color: var(--warn);
 }
 
 /* ---- 安心ルート: 区間リスト ---- */
 .leg-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 13px;
   padding: 11px 12px;
 }
 
-.leg-row + .leg-row { border-top: 0.5px solid rgba(60, 60, 67, 0.15); }
+.leg-row + .leg-row { border-top: 0.5px solid var(--hairline); }
 
 .leg-icon {
   flex-shrink: 0;
@@ -552,15 +665,15 @@ body {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: rgba(26, 115, 232, 0.12);
-  color: #1a56c4;
+  background: var(--accent-tint);
+  color: var(--accent);
   font-size: 15px;
   font-weight: 700;
 }
 
 .leg-row.gap .leg-icon {
-  background: rgba(232, 113, 10, 0.15);
-  color: #9a4b00;
+  background: var(--warn-tint);
+  color: var(--warn);
 }
 
 .leg-main {
@@ -581,14 +694,14 @@ body {
 
 .leg-warn {
   font-size: 11px;
-  color: #9a4b00;
+  color: var(--warn);
 }
 
 .leg-time {
   flex-shrink: 0;
   font-size: 14px;
   font-weight: 700;
-  color: #3c3c43;
+  color: var(--text-2);
 }
 
 /* ---- ターンバイターン ---- */
@@ -597,11 +710,11 @@ body {
 .step-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 13px;
   padding: 11px 12px;
 }
 
-.step-row + .step-row { border-top: 0.5px solid rgba(60, 60, 67, 0.15); }
+.step-row + .step-row { border-top: 0.5px solid var(--hairline); }
 
 .step-arrow {
   flex-shrink: 0;
@@ -611,8 +724,8 @@ body {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: rgba(26, 115, 232, 0.12);
-  color: #1a56c4;
+  background: var(--accent-tint);
+  color: var(--accent);
   font-size: 17px;
   font-weight: 700;
 }
@@ -626,47 +739,54 @@ body {
 .step-dist {
   flex-shrink: 0;
   font-size: 12px;
-  color: #6d6d72;
+  color: var(--text-3);
 }
 
 /* Leaflet の帰属表記 (地図の上に常時載るためブラーは使わない) */
 .leaflet-control-attribution {
-  background: rgba(255, 255, 255, 0.75) !important;
+  background: var(--glass-bg) !important;
+  color: var(--text-3) !important;
+  border-radius: 8px 0 0 0;
   font-size: 10px !important;
 }
+.leaflet-control-attribution a { color: var(--accent) !important; }
 
-/* 長いリストは画面外の行の描画をスキップする */
-.toilet-row {
-  content-visibility: auto;
-  contain-intrinsic-size: auto 64px;
-}
-
-/* ================= 交通手段タブ (Google マップ風) ================= */
+/* ================= 交通手段タブ ================= */
 .travel-tabs {
   flex-shrink: 0;
   display: flex;
   gap: 6px;
-  padding: 0 20px 10px;
+  padding: 0 20px 12px;
 }
 
 .travel-tabs button {
   flex: 1;
-  padding: 8px 0;
-  border: 1px solid rgba(60, 60, 67, 0.15);
+  padding: 9px 0;
+  border: 0.5px solid var(--hairline);
   border-radius: 999px;
-  background: rgba(120, 120, 128, 0.08);
-  color: #3c3c43;
+  background: var(--card-fill);
+  color: var(--text-2);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s, transform 0.1s;
 }
+
+.travel-tabs button:active { transform: scale(0.96); }
 
 .travel-tabs button.active {
-  background: #e8f0fe;
-  border-color: #1a73e8;
-  color: #1a73e8;
+  background: var(--accent-tint);
+  border-color: transparent;
+  color: var(--accent);
 }
 
-.travel-tabs button:disabled {
-  opacity: 0.5;
+.travel-tabs button:disabled { opacity: 0.5; }
+
+/* モーションを控えたいユーザー設定を尊重する */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
 }

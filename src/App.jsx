@@ -136,16 +136,31 @@ export default function App() {
   // ---- 地図の初期化 ----
   useEffect(() => {
     const map = L.map(mapEl.current, { zoomControl: false }).setView(DEFAULT_CENTER, 15);
-    // Google マップ風のシンプルな配色のベースマップ (CARTO Voyager)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    const attribution =
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>';
+    // 端末のライト/ダーク設定に合わせて CARTO のベースマップを切り替える
+    // (light=Voyager / dark=Dark Matter)。切替時はタイルレイヤーを差し替える
+    const darkMq = window.matchMedia('(prefers-color-scheme: dark)');
+    const styleFor = (dark) =>
+      dark
+        ? 'https://{s}.basemaps.cartocdn.com/rastertiles/dark_all/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    let tiles = L.tileLayer(styleFor(darkMq.matches), {
       subdomains: 'abcd',
       maxZoom: 20,
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      attribution,
     }).addTo(map);
+    const onScheme = (e) => {
+      map.removeLayer(tiles);
+      tiles = L.tileLayer(styleFor(e.matches), { subdomains: 'abcd', maxZoom: 20, attribution }).addTo(map);
+    };
+    darkMq.addEventListener?.('change', onScheme);
     markersRef.current = L.layerGroup(); // 表示/非表示はモード切替 effect が管理する
     mapRef.current = map;
-    return () => map.remove();
+    return () => {
+      darkMq.removeEventListener?.('change', onScheme);
+      map.remove();
+    };
   }, []);
 
   // ---- 「最寄りトイレ」モードのマーカー層は、そのモードのときだけ地図に載せる ----
