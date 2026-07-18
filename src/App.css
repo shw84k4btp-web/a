@@ -7,13 +7,15 @@
   color-scheme: light dark;
 
   --accent: #0066d6; /* 白地で5.4:1 (AA余裕) */
+  --accent-fill: #0066d6; /* 塗りボタン背景 (白文字でAA) */
   --accent-strong: #0053b3;
   --accent-tint: rgba(0, 102, 214, 0.1);
   --accent-contrast: #ffffff;
 
-  --ok: #147a38; /* ok-tint 上で4.7:1 */
+  --ok: #106e32; /* ok-tint 上でシート透過込みでもAA */
   --ok-tint: rgba(26, 143, 67, 0.12);
   --warn: #9a5600; /* warn-tint 上で5.0:1 */
+  --pin-warn: #e08a20; /* 地図ピン塗り用の明るい警告色 */
   --warn-tint: rgba(224, 138, 32, 0.14);
   --danger: #d63a2f;
 
@@ -25,7 +27,7 @@
   --sheet-bg: rgba(251, 251, 253, 0.94);
   --card-fill: rgba(120, 120, 128, 0.08);
   --card-fill-active: rgba(120, 120, 128, 0.18);
-  --hairline: rgba(60, 60, 67, 0.08);
+  --hairline: rgba(60, 60, 67, 0.14);
 
   --glass-bg: rgba(255, 255, 255, 0.66);
   --glass-border: rgba(255, 255, 255, 0.65);
@@ -48,6 +50,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --accent: #0a84ff;
+    --accent-fill: #0070e0; /* 塗りボタン背景 (白文字で4.7:1) */
     --accent-strong: #6cb2ff; /* accent-tint 上で4.7:1 */
     --accent-tint: rgba(10, 132, 255, 0.2);
     --accent-contrast: #ffffff;
@@ -55,6 +58,7 @@
     --ok: #34c759;
     --ok-tint: rgba(48, 209, 88, 0.16);
     --warn: #ff9f0a;
+    --pin-warn: #ff9f0a;
     --warn-tint: rgba(255, 159, 10, 0.16);
     --danger: #ff453a;
 
@@ -65,7 +69,7 @@
     --sheet-bg: rgba(28, 28, 30, 0.94);
     --card-fill: rgba(118, 118, 128, 0.18);
     --card-fill-active: rgba(118, 118, 128, 0.32);
-    --hairline: rgba(255, 255, 255, 0.09);
+    --hairline: rgba(255, 255, 255, 0.12);
 
     --glass-bg: rgba(36, 36, 40, 0.6);
     --glass-border: rgba(255, 255, 255, 0.12);
@@ -198,13 +202,16 @@ body {
 }
 
 .link-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px; /* iOS HIG タップターゲット */
   border: none;
   background: none;
   color: var(--accent);
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  padding: 2px 4px;
+  padding: 2px 8px;
 }
 
 .icon-btn {
@@ -254,7 +261,7 @@ body {
 }
 
 .mode-toggle button.active {
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--accent-contrast);
 }
 
@@ -296,7 +303,7 @@ body {
   padding: 11px 19px;
   border: none;
   border-radius: calc(var(--r-md) - 6px);
-  background: var(--accent);
+  background: var(--accent-fill);
   color: var(--accent-contrast);
   font-size: 15px;
   font-weight: 600;
@@ -394,7 +401,7 @@ body {
 
 .waypoint-pin > * { transform: rotate(45deg); }
 
-.waypoint-pin.gap { background: var(--warn); }
+.waypoint-pin.gap { background: var(--pin-warn); }
 
 .waypoint-badge {
   position: absolute;

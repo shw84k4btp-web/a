@@ -91,7 +91,7 @@ function toiletDetails(t) {
 // ボトムシートのスナップ位置 (画面の高さに対する割合)。
 // 最小の 0.14 はサマリー行だけが見える「地図主体」の状態 (Google マップと同じ発想)
 const SHEET_SNAPS = [0.14, 0.45, 0.82];
-const TOPBAR_SLOT_HEIGHT = 56; // 上部フローティングバー1段あたりの高さ目安 (px)
+const TOPBAR_SLOT_HEIGHT = 64; // 上部フローティングバー1段あたりの高さ目安 (px、44ptボタン込み)
 
 export default function App() {
   const mapEl = useRef(null);
