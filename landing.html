@@ -13,10 +13,11 @@
     --bg-2: #eef1f8;
     --ink: #0b1220;
     --ink-2: #4b5468;
-    --ink-3: #8a92a6;
+    --ink-3: #68718a; /* 白背景で4.6:1 (AA) */
+    --accent-strong-btn: #0053b3; /* 塗りボタン用。白文字でAA */
     --accent: #0066d6;
-    --accent-2: #00b3e6;
-    --ok: #147a38;
+    --accent-2: #0087cf; /* 白文字/白地とも大テキストAA (3:1) を満たす濃さ */
+    --ok: #106e32;
     --warn: #9a5600;
     --card: rgba(255, 255, 255, 0.72);
     --card-border: rgba(255, 255, 255, 0.9);
@@ -94,7 +95,7 @@
   .nav-links a:hover { color: var(--accent); }
   .nav-cta {
     margin-left: 10px; padding: 9px 18px; border-radius: 999px;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    background: linear-gradient(135deg, var(--accent-strong-btn), var(--accent));
     color: #fff; font-size: 14px; font-weight: 700; text-decoration: none;
     box-shadow: 0 8px 22px rgba(0, 102, 214, 0.32);
   }
@@ -130,7 +131,7 @@
   }
   .btn:active { transform: scale(0.97); }
   .btn.primary {
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    background: linear-gradient(135deg, var(--accent-strong-btn), var(--accent));
     color: #fff;
     box-shadow: 0 14px 34px rgba(0, 102, 214, 0.35);
   }
@@ -150,8 +151,7 @@
     box-shadow:
       0 60px 120px rgba(15, 35, 90, 0.22),
       inset 0 0 0 10px #0d1524,
-      inset 0 0 0 11px #2a3answer;
-    box-shadow: 0 60px 120px rgba(15, 35, 90, 0.22), inset 0 0 0 10px #0d1524;
+      inset 0 0 0 11px #2a3548;
     transform: rotateY(-16deg) rotateX(7deg) rotateZ(0.5deg);
     transform-style: preserve-3d;
     transition: transform 0.18s ease-out;
@@ -262,7 +262,7 @@
     width: 46px; height: 46px; display: grid; place-items: center;
     font-weight: 800; font-size: 18px; color: #fff;
     border-radius: 15px;
-    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    background: linear-gradient(135deg, var(--accent-strong-btn), var(--accent));
     box-shadow: 0 10px 26px rgba(0, 102, 214, 0.35);
     margin-bottom: 14px;
   }
@@ -325,6 +325,7 @@
     .how-band { padding: 34px 24px; }
   }
 </style>
+<noscript><style>.reveal { opacity: 1 !important; transform: none !important; }</style></noscript>
 </head>
 <body>
 

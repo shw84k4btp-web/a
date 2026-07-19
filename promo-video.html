@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<title>トイレファインダー — 紹介動画</title>
+<style>
+  :root {
+    --bg: #f7f8fc; --bg-2: #eef1f8;
+    --ink: #0b1220; --ink-2: #4b5468; --ink-3: #68718a;
+    --accent: #0066d6; --accent-2: #0087cf; --accent-btn: #0053b3;
+    --ok: #106e32; --ok-tint: rgba(16,110,50,0.12);
+    --warn: #9a5600;
+    --card: rgba(255,255,255,0.74); --card-border: rgba(255,255,255,0.92);
+    --hairline: rgba(11,18,32,0.09);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); }
+  body {
+    font-family: system-ui, -apple-system, 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', Meiryo, sans-serif;
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .reel { position: relative; width: 1920px; height: 1080px; overflow: hidden; animation: pushin 40s linear forwards; }
+  @keyframes pushin { from { transform: scale(1); } to { transform: scale(1.035); } }
+
+  .bg {
+    position: absolute; inset: -4%;
+    background:
+      radial-gradient(1100px 620px at 86% -8%, rgba(0,179,230,0.16), transparent 60%),
+      radial-gradient(1000px 640px at -8% 30%, rgba(0,102,214,0.13), transparent 60%),
+      radial-gradient(900px 620px at 55% 112%, rgba(120,90,255,0.11), transparent 60%),
+      linear-gradient(180deg, #fbfcff 0%, var(--bg) 40%, var(--bg-2) 100%);
+  }
+  .bg::after {
+    content: ''; position: absolute; left: -30%; right: -30%; bottom: -14%; height: 60%;
+    background:
+      linear-gradient(rgba(0,102,214,0.14) 1px, transparent 1px) 0 0 / 100% 58px,
+      linear-gradient(90deg, rgba(0,102,214,0.14) 1px, transparent 1px) 0 0 / 58px 100%;
+    transform: perspective(900px) rotateX(64deg); transform-origin: top center;
+    -webkit-mask-image: linear-gradient(180deg, transparent, #000 30%, transparent 95%);
+    mask-image: linear-gradient(180deg, transparent, #000 30%, transparent 95%);
+  }
+  .orb { position: absolute; border-radius: 50%; filter: blur(64px); opacity: 0.55; animation: drift 13s ease-in-out infinite alternate; }
+  .orb.a { width: 480px; height: 480px; top: 4%; right: 2%; background: radial-gradient(circle at 35% 35%, #a9ddff, #4aa8ff 60%, transparent 76%); }
+  .orb.b { width: 380px; height: 380px; top: 48%; left: -8%; background: radial-gradient(circle at 40% 35%, #cfd8ff, #7f9dff 60%, transparent 76%); animation-delay: -5s; }
+  @keyframes drift { from { transform: translate3d(0,0,0) scale(1);} to { transform: translate3d(0,44px,0) scale(1.08);} }
+
+  /* ===== HUD ===== */
+  .hud-brand {
+    position: absolute; top: 52px; left: 64px; z-index: 40;
+    display: flex; align-items: center; gap: 14px; font-weight: 800; font-size: 26px;
+    opacity: 0.92;
+  }
+  .hud-brand .mark { font-size: 34px; filter: drop-shadow(0 3px 8px rgba(0,102,214,0.35)); }
+  .hud-counter {
+    position: absolute; top: 58px; right: 64px; z-index: 40;
+    font-size: 17px; font-weight: 700; color: var(--ink-3); letter-spacing: 0.08em;
+    font-variant-numeric: tabular-nums;
+  }
+  .progress-track {
+    position: absolute; left: 64px; right: 64px; bottom: 46px; height: 4px; border-radius: 4px;
+    background: rgba(11,18,32,0.08); z-index: 40; overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%; width: 0%; border-radius: 4px;
+    background: linear-gradient(90deg, var(--accent-btn), var(--accent-2));
+  }
+
+  /* ===== シーン ===== */
+  .scene {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    opacity: 0; transform: scale(0.97);
+    transition: opacity 0.65s ease, transform 0.9s cubic-bezier(0.22,1,0.36,1);
+    pointer-events: none;
+  }
+  .scene.active { opacity: 1; transform: scale(1); pointer-events: auto; }
+
+  .split { width: 1720px; display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 64px; }
+  .cap { max-width: 700px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 9px; padding: 9px 18px; border-radius: 999px;
+    background: rgba(0,102,214,0.08); border: 1px solid rgba(0,102,214,0.2);
+    color: var(--accent); font-size: 17px; font-weight: 800; letter-spacing: 0.04em;
+  }
+  .cap h2 { font-size: 52px; font-weight: 800; line-height: 1.28; margin: 26px 0 20px; letter-spacing: -0.01em; }
+  .cap h2 .hl {
+    background: linear-gradient(120deg, var(--accent) 10%, var(--accent-2) 60%, #7a5cff 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .cap p { font-size: 25px; line-height: 1.65; color: var(--ink-2); max-width: 62ch; }
+  .visual { display: flex; align-items: center; justify-content: center; }
+
+  /* ===== 3D フォン ===== */
+  .stage3d { perspective: 1400px; }
+  .phone {
+    width: 380px; height: 786px; border-radius: 54px;
+    background: linear-gradient(160deg, #ffffff, #eef2fa);
+    border: 1px solid #fff;
+    box-shadow: 0 70px 140px rgba(15,35,90,0.24), inset 0 0 0 12px #0d1524, inset 0 0 0 13px #2a3548;
+    transform: rotateY(-13deg) rotateX(6deg);
+    transform-style: preserve-3d; position: relative;
+    animation: float 6.5s ease-in-out infinite alternate;
+  }
+  @keyframes float { from { translate: 0 0; } to { translate: 0 -18px; } }
+  .phone .notch { position: absolute; top: 22px; left: 50%; transform: translateX(-50%); width: 132px; height: 32px; border-radius: 999px; background: #0d1524; z-index: 3; }
+  .screen {
+    position: absolute; inset: 12px; border-radius: 44px; overflow: hidden;
+    background: radial-gradient(420px 260px at 80% 0%, rgba(0,179,230,0.17), transparent 60%), linear-gradient(180deg, #f2f6ff 0%, #e8eefc 100%);
+    display: flex; flex-direction: column; transition: background 1.1s ease;
+  }
+  .screen.dark { background: radial-gradient(420px 260px at 80% 0%, rgba(10,132,255,0.22), transparent 60%), linear-gradient(180deg, #14151a 0%, #1c1d24 100%); }
+
+  .m-top {
+    margin: 66px 16px 10px; padding: 13px 16px; border-radius: 22px;
+    background: rgba(255,255,255,0.8); border: 1px solid rgba(255,255,255,0.96);
+    box-shadow: 0 10px 26px rgba(15,35,90,0.1); font-size: 15px; font-weight: 800;
+    display: flex; gap: 10px; align-items: center; transition: background 1.1s ease, color 1.1s ease;
+  }
+  .screen.dark .m-top { background: rgba(40,42,50,0.75); color: #f2f4fa; border-color: rgba(255,255,255,0.1); }
+  .m-top small { display: block; font-weight: 700; color: var(--ok); font-size: 12.5px; }
+
+  .m-body { position: relative; flex: 1; }
+  .m-body svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .m-body svg text { font-family: 'Noto Color Emoji', system-ui, sans-serif; }
+
+  .m-list { padding: 6px 16px; display: flex; flex-direction: column; gap: 10px; }
+  .m-row {
+    display: flex; align-items: center; gap: 12px; padding: 13px 12px; border-radius: 18px;
+    background: rgba(255,255,255,0.0); opacity: 0; transform: translateY(10px);
+  }
+  .m-row .ico { width: 46px; height: 46px; border-radius: 14px; background: rgba(0,102,214,0.12); display: grid; place-items: center; font-size: 21px; flex-shrink: 0; }
+  .m-row .name { font-size: 16px; font-weight: 700; }
+  .m-row .dist { margin-left: auto; text-align: right; font-size: 15px; font-weight: 800; color: var(--accent); }
+  .m-row .dist span { display: block; font-size: 12px; font-weight: 600; color: var(--ink-3); }
+
+  .m-sheet {
+    padding: 16px 20px 24px; border-radius: 28px 28px 0 0;
+    background: rgba(255,255,255,0.96); border-top: 1px solid rgba(255,255,255,1);
+    box-shadow: 0 -14px 34px rgba(15,35,90,0.14);
+    transform: translateY(120%); opacity: 0; transition: background 1.1s ease;
+  }
+  .screen.dark .m-sheet { background: rgba(28,29,36,0.96); box-shadow: 0 -14px 34px rgba(0,0,0,0.45); }
+  .m-grab { width: 42px; height: 5px; border-radius: 3px; background: #c8cdd9; margin: 0 auto 12px; }
+  .m-time { font-size: 30px; font-weight: 800; color: var(--ok); }
+  .m-time small { font-size: 14px; font-weight: 700; color: var(--ink-2); margin-left: 8px; }
+  .screen.dark .m-time small { color: #b7bdd0; }
+  .m-chip { margin-top: 12px; padding: 11px 13px; border-radius: 13px; background: var(--ok-tint); color: var(--ok); font-size: 14px; font-weight: 800; }
+  .m-tabs { display: flex; gap: 8px; margin-top: 14px; }
+  .m-tabs i { flex: 1; text-align: center; font-style: normal; font-size: 14px; font-weight: 800; padding: 11px 0; border-radius: 999px; background: rgba(120,120,128,0.1); color: var(--ink-2); transition: background 0.4s, color 0.4s; }
+  .m-tabs i.on { background: rgba(0,102,214,0.14); color: var(--accent-btn); }
+  .screen.dark .m-tabs i { color: #cfd3e0; }
+
+  /* シーン固有の動きは .active になった瞬間から時間差で発火する */
+  .scene.active .m-row { animation: rowIn 0.6s cubic-bezier(0.22,1,0.36,1) forwards; }
+  .scene.active .m-row:nth-child(1) { animation-delay: 0.5s; }
+  .scene.active .m-row:nth-child(2) { animation-delay: 0.85s; }
+  @keyframes rowIn { to { opacity: 1; transform: translateY(0); } }
+
+  .scene.active .m-sheet.pop { animation: sheetIn 0.7s cubic-bezier(0.22,1,0.36,1) forwards; animation-delay: var(--sheet-delay, 2.2s); }
+  @keyframes sheetIn { to { transform: translateY(0); opacity: 1; } }
+
+  .route-path { stroke-dasharray: 100; stroke-dashoffset: 100; }
+  .scene.active .route-path { animation: draw 2.1s cubic-bezier(0.4,0,0.2,1) forwards; animation-delay: 0.5s; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+
+  /* 絵文字はこの環境の SVG <text> では描画されないため、ピンは HTML 要素の
+     オーバーレイにする (m-body 内で position:absolute、%座標)。route-path の
+     SVG は preserveAspectRatio="none" にして % 座標と1:1で対応させている */
+  .m-pins { position: absolute; inset: 0; }
+  .html-pin {
+    position: absolute; width: 38px; height: 38px; margin: -19px 0 0 -19px;
+    border-radius: 50%; background: var(--accent); border: 3px solid #fff;
+    box-shadow: 0 4px 14px rgba(15,35,90,0.35);
+    display: grid; place-items: center; font-size: 18px;
+    opacity: 0; transform: scale(0.3); transform-origin: center;
+  }
+  .html-pin.dest { background: #d63a2f; }
+  .html-pin .badge {
+    position: absolute; top: -8px; right: -8px; min-width: 18px; height: 18px; padding: 0 3px;
+    border-radius: 50%; background: #fff; color: #0b1220; font-size: 11px; font-weight: 800;
+    display: grid; place-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+  }
+  .scene.active .html-pin { animation: pinIn 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+  @keyframes pinIn { to { opacity: 1; transform: scale(1); } }
+
+  .featurebar { display: flex; gap: 14px; margin-top: 34px; }
+  .fpill {
+    display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px;
+    background: var(--card); border: 1px solid var(--card-border); font-size: 16px; font-weight: 700; color: var(--ink-2);
+    box-shadow: 0 8px 20px rgba(15,35,90,0.06);
+  }
+
+  /* ===== オープニング / エンディング ===== */
+  .center-scene { text-align: center; }
+  .logo-mark {
+    width: 168px; height: 168px; margin: 0 auto 30px; border-radius: 44px;
+    background: linear-gradient(155deg, #ffffff, #e8eefc);
+    box-shadow: 0 40px 90px rgba(15,35,90,0.2), inset 0 1px 0 #fff;
+    display: grid; place-items: center; font-size: 84px;
+    animation: logoPulse 2.6s ease-in-out infinite;
+  }
+  @keyframes logoPulse { 0%,100% { box-shadow: 0 40px 90px rgba(15,35,90,0.2), inset 0 1px 0 #fff, 0 0 0 0 rgba(0,102,214,0.0);} 50% { box-shadow: 0 44px 100px rgba(15,35,90,0.24), inset 0 1px 0 #fff, 0 0 0 26px rgba(0,102,214,0.06);} }
+  .wordmark { font-size: 58px; font-weight: 800; letter-spacing: -0.01em; }
+  .tagline { margin-top: 18px; font-size: 30px; font-weight: 700; }
+  .tagline .hl { background: linear-gradient(120deg, var(--accent) 10%, var(--accent-2) 60%, #7a5cff 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub-tagline { margin-top: 14px; font-size: 21px; color: var(--ink-2); }
+  .cta-chip {
+    display: inline-flex; align-items: center; gap: 10px; margin-top: 40px; padding: 18px 34px; border-radius: 999px;
+    background: linear-gradient(135deg, var(--accent-btn), var(--accent)); color: #fff; font-size: 22px; font-weight: 800;
+    box-shadow: 0 20px 50px rgba(0,102,214,0.38);
+  }
+  .steps-row { display: flex; gap: 18px; margin-top: 36px; justify-content: center; }
+  .steps-row .s { padding: 14px 22px; border-radius: 16px; background: var(--card); border: 1px solid var(--card-border); font-size: 17px; font-weight: 700; color: var(--ink-2); box-shadow: 0 8px 20px rgba(15,35,90,0.06); }
+  .steps-row .s b { color: var(--ink); }
+</style>
+</head>
+<body>
+<div class="reel" id="reel">
+  <div class="bg"><div class="orb a"></div><div class="orb b"></div></div>
+  <div class="hud-brand"><span class="mark">🚻</span>トイレファインダー</div>
+  <div class="hud-counter" id="hudCounter">01 / 07</div>
+  <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+
+  <!-- Scene 0: オープニング -->
+  <section class="scene" data-scene>
+    <div class="center-scene">
+      <div class="logo-mark">🚻</div>
+      <div class="wordmark">トイレファインダー</div>
+      <div class="tagline">もう、トイレで<span class="hl">焦らない。</span></div>
+    </div>
+  </section>
+
+  <!-- Scene 1: 最寄り検索 -->
+  <section class="scene" data-scene>
+    <div class="split">
+      <div class="cap">
+        <span class="eyebrow">SCENE 01 — 知らない街の駅を出た、その瞬間</span>
+        <h2>「今、<span class="hl">すぐ</span>行きたい」</h2>
+        <p>アプリを開けば、現在地から一番近いトイレが一覧で並ぶ。タップすれば、徒歩ルートと到着時刻がすぐにわかる。</p>
+        <div class="featurebar">
+          <span class="fpill">📍 現在地から自動検索</span>
+          <span class="fpill">🚶 曲がり角ごとの案内</span>
+        </div>
+      </div>
+      <div class="visual"><div class="stage3d"><div class="phone"><div class="notch"></div>
+        <div class="screen">
+          <div class="m-top">🚻 <span>2件見つかりました<small>現在地から近い順</small></span></div>
+          <div class="m-list">
+            <div class="m-row"><span class="ico">🚻</span><span class="name">神田公園 公衆トイレ</span><span class="dist">約4分<span>320 m</span></span></div>
+            <div class="m-row"><span class="ico">🏪</span><span class="name">セブンイレブン 大手町店</span><span class="dist">約6分<span>480 m</span></span></div>
+          </div>
+        </div>
+      </div></div></div>
+    </div>
+  </section>
+
+  <!-- Scene 2: 安心ルート -->
+  <section class="scene" data-scene>
+    <div class="split">
+      <div class="cap">
+        <span class="eyebrow">SCENE 02 — 初めての道を、長距離ドライブ</span>
+        <h2>「この先、<span class="hl">大丈夫かな…</span>」を、なくす。</h2>
+        <p>目的地までのルートに、常に車で1分以内のトイレがある道を自動で設計。途中の不安を、あらかじめ消していく。</p>
+        <div class="featurebar">
+          <span class="fpill">🧭 安心ルートを自動設計</span>
+          <span class="fpill">✅ 全区間を事前に保証</span>
+        </div>
+      </div>
+      <div class="visual"><div class="stage3d"><div class="phone"><div class="notch"></div>
+        <div class="screen">
+          <div class="m-top">🧭 <span>安心ルート<small>常に車で1分以内のトイレを経由</small></span></div>
+          <div class="m-body">
+            <svg viewBox="0 0 300 320" preserveAspectRatio="none" fill="none">
+              <path class="route-path" pathLength="100" d="M64 300 C 90 240, 140 250, 160 200 S 230 110, 250 50" stroke="#ffffff" stroke-width="15" stroke-linecap="round"/>
+              <path class="route-path" pathLength="100" d="M64 300 C 90 240, 140 250, 160 200 S 230 110, 250 50" stroke="#0066d6" stroke-width="8.5" stroke-linecap="round"/>
+            </svg>
+            <div class="m-pins">
+              <div class="html-pin" style="left:21.3%; top:93.75%; width:26px; height:26px; margin:-13px 0 0 -13px; animation-delay:.5s"></div>
+              <div class="html-pin" style="left:51.3%; top:64.4%; animation-delay:1.55s">🚻<span class="badge">1</span></div>
+              <div class="html-pin" style="left:76%; top:36.25%; animation-delay:2.05s">🏪<span class="badge">2</span></div>
+              <div class="html-pin dest" style="left:83.3%; top:15.6%; animation-delay:2.55s">🏁</div>
+            </div>
+          </div>
+          <div class="m-sheet pop" style="--sheet-delay:3.0s">
+            <div class="m-grab"></div>
+            <div class="m-time">🚗 12分<small>6.8 km・14:32 到着</small></div>
+            <div class="m-chip">✅ 全区間、車で1分以内にトイレがあります (2件経由)</div>
+          </div>
+        </div>
+      </div></div></div>
+    </div>
+  </section>
+
+  <!-- Scene 3: 交通手段 -->
+  <section class="scene" data-scene>
+    <div class="split">
+      <div class="cap">
+        <span class="eyebrow">SCENE 03 — 移動手段は、人それぞれ</span>
+        <h2>車でも、自転車でも、<span class="hl">徒歩でも。</span></h2>
+        <p>移動手段に合わせて「安心」の基準ごと切り替わる。車なら1分、自転車なら2分、徒歩なら5分以内に。</p>
+        <div class="featurebar">
+          <span class="fpill">🚗 1分</span><span class="fpill">🚴 2分</span><span class="fpill">🚶 5分</span>
+        </div>
+      </div>
+      <div class="visual"><div class="stage3d"><div class="phone"><div class="notch"></div>
+        <div class="screen">
+          <div class="m-top">🧭 <span id="tmLabel">安心ルート<small id="tmSub">常に車で1分以内のトイレを経由</small></span></div>
+          <div class="m-body">
+            <svg viewBox="0 0 300 320" fill="none">
+              <path pathLength="100" d="M64 300 C 90 240, 140 250, 160 200 S 230 110, 250 50" stroke="#ffffff" stroke-width="15" stroke-linecap="round"/>
+              <path pathLength="100" d="M64 300 C 90 240, 140 250, 160 200 S 230 110, 250 50" stroke="#0066d6" stroke-width="8.5" stroke-linecap="round" stroke-dasharray="100" stroke-dashoffset="0"/>
+            </svg>
+          </div>
+          <div class="m-sheet" style="transform:none;opacity:1;">
+            <div class="m-grab"></div>
+            <div class="m-tabs" id="tmTabs">
+              <i class="on">🚗 車</i><i>🚴 自転車</i><i>🚶 徒歩</i>
+            </div>
+          </div>
+        </div>
+      </div></div></div>
+    </div>
+  </section>
+
+  <!-- Scene 4: コンビニ/GS -->
+  <section class="scene" data-scene>
+    <div class="split">
+      <div class="cap">
+        <span class="eyebrow">SCENE 04 — トイレが見当たらない道でも</span>
+        <h2>コンビニも、<span class="hl">ガソリンスタンドも。</span></h2>
+        <p>公衆トイレだけじゃない。いざという時に駆け込める場所まで、経由地の候補に自動で組み込む。</p>
+        <div class="featurebar">
+          <span class="fpill">🚻 公衆トイレ</span><span class="fpill">🏪 コンビニ</span><span class="fpill">⛽ ガソリンスタンド</span>
+        </div>
+      </div>
+      <div class="visual"><div class="stage3d"><div class="phone"><div class="notch"></div>
+        <div class="screen">
+          <div class="m-body">
+            <svg viewBox="0 0 300 320" preserveAspectRatio="none" fill="none">
+              <path pathLength="100" d="M64 300 C 90 240, 140 250, 160 200 S 230 110, 250 50" stroke="#ffffff" stroke-width="15" stroke-linecap="round"/>
+              <path pathLength="100" d="M64 300 C 90 240, 140 250, 160 200 S 230 110, 250 50" stroke="#0066d6" stroke-width="8.5" stroke-linecap="round"/>
+            </svg>
+            <div class="m-pins">
+              <div class="html-pin" style="left:21.3%; top:93.75%; width:26px; height:26px; margin:-13px 0 0 -13px"></div>
+              <div class="html-pin" style="left:51.3%; top:64.4%; animation-delay:.6s">🚻</div>
+              <div class="html-pin" style="left:76%; top:36.25%; animation-delay:1.2s">🏪</div>
+              <div class="html-pin" style="left:83.3%; top:15.6%; animation-delay:1.8s">⛽</div>
+            </div>
+          </div>
+          <div class="m-sheet" style="transform:none;opacity:1;">
+            <div class="m-grab"></div>
+            <div class="m-chip" style="margin-top:0">✅ 全区間、車で1分以内にトイレがあります (3件経由)</div>
+          </div>
+        </div>
+      </div></div></div>
+    </div>
+  </section>
+
+  <!-- Scene 5: ダークモード -->
+  <section class="scene" data-scene>
+    <div class="split">
+      <div class="cap">
+        <span class="eyebrow">SCENE 05 — 陽が落ちても</span>
+        <h2>夜は、<span class="hl">夜の見やすさ</span>で。</h2>
+        <p>端末の設定にあわせて、地図も画面もダークモードへ自動で切り替わる。iPhoneに、静かに馴染む。</p>
+        <div class="featurebar">
+          <span class="fpill">🌓 自動でライト/ダーク切替</span>
+          <span class="fpill">🗺 地図ごと切り替わる</span>
+        </div>
+      </div>
+      <div class="visual"><div class="stage3d"><div class="phone"><div class="notch"></div>
+        <div class="screen" id="darkScreen">
+          <div class="m-top">🚻 <span>2件見つかりました<small>現在地から近い順</small></span></div>
+          <div class="m-list">
+            <div class="m-row" style="opacity:1;transform:none"><span class="ico">🚻</span><span class="name">神田公園 公衆トイレ</span><span class="dist">約4分<span>320 m</span></span></div>
+            <div class="m-row" style="opacity:1;transform:none"><span class="ico">🏪</span><span class="name">セブンイレブン 大手町店</span><span class="dist">約6分<span>480 m</span></span></div>
+          </div>
+        </div>
+      </div></div></div>
+    </div>
+  </section>
+
+  <!-- Scene 6: エンディング -->
+  <section class="scene" data-scene>
+    <div class="center-scene">
+      <div class="logo-mark">🚻</div>
+      <div class="wordmark">トイレファインダー</div>
+      <div class="sub-tagline">もう、トイレで焦らない、移動を。</div>
+      <div class="cta-chip">🚀 今すぐ、無料ではじめる</div>
+      <div class="steps-row">
+        <div class="s"><b>1.</b> Safariで開く</div>
+        <div class="s"><b>2.</b> 共有ボタンをタップ</div>
+        <div class="s"><b>3.</b> 「ホーム画面に追加」</div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+  // シーンごとの尺 (ms)。crossfade分は前後のシーンでオーバーラップする
+  const scenes = [
+    { duration: 3200 },
+    { duration: 5600 },
+    { duration: 6800 },
+    { duration: 4600 },
+    { duration: 4600 },
+    { duration: 4600 },
+    { duration: 5200 },
+  ];
+  const CROSSFADE = 650;
+  const TAIL = 900; // 最終シーンを静止させてから録画を止めるための余白
+
+  let acc = 0;
+  const windows = scenes.map((s, i) => {
+    const start = acc;
+    acc += s.duration;
+    return { start, end: acc, i };
+  });
+  const total = acc;
+  window.__TOTAL_MS__ = total + TAIL;
+
+  const sceneEls = [...document.querySelectorAll('[data-scene]')];
+  const counterEl = document.getElementById('hudCounter');
+  const fillEl = document.getElementById('progressFill');
+
+  // Scene 3: 交通手段タブの切替アニメーション (car -> bike -> foot)
+  const tmTabs = document.getElementById('tmTabs');
+  const tmSub = document.getElementById('tmSub');
+  const tmSeq = [
+    { on: 0, sub: '常に車で1分以内のトイレを経由' },
+    { on: 1, sub: '常に自転車で2分以内のトイレを経由' },
+    { on: 2, sub: '常に徒歩で5分以内のトイレを経由' },
+  ];
+  let tmStep = -1;
+  function applyTm(step) {
+    [...tmTabs.children].forEach((el, idx) => el.classList.toggle('on', idx === tmSeq[step].on));
+    tmSub.textContent = tmSeq[step].sub;
+  }
+
+  let darkApplied = false;
+
+  const t0 = performance.now();
+  function tick() {
+    const elapsed = performance.now() - t0;
+
+    // シーンのアクティブ判定 (crossfade分だけ前倒しで次を表示)
+    let currentIdx = 0;
+    windows.forEach((w, i) => {
+      const activeFrom = w.start - (i > 0 ? CROSSFADE : 0);
+      const isActive = elapsed >= activeFrom && elapsed < w.end;
+      sceneEls[i].classList.toggle('active', isActive);
+      if (elapsed >= w.start && elapsed < w.end) currentIdx = i;
+    });
+    counterEl.textContent = String(currentIdx + 1).padStart(2, '0') + ' / ' + String(scenes.length).padStart(2, '0');
+    fillEl.style.width = Math.min(100, (elapsed / total) * 100) + '%';
+
+    // シーン3: 1.4秒おきに手段を切り替え (シーン開始からの相対時間で判定)
+    const s3 = windows[3];
+    if (elapsed >= s3.start && elapsed < s3.end) {
+      const rel = elapsed - s3.start;
+      const step = Math.min(2, Math.floor(rel / 1500));
+      if (step !== tmStep) { tmStep = step; applyTm(step); }
+    } else if (elapsed >= s3.end) {
+      tmStep = 2; // シーンを離れたら最終状態で固定
+    }
+
+    // シーン5: 開始1.6秒後にダークモードへ切替
+    const s5 = windows[5];
+    if (!darkApplied && elapsed >= s5.start + 1600 && elapsed < s5.end + 400) {
+      document.getElementById('darkScreen').classList.add('dark');
+      darkApplied = true;
+    }
+
+    if (elapsed < total + TAIL) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+</script>
+</body>
+</html>
