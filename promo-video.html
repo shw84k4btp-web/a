@@ -67,14 +67,93 @@
     background: linear-gradient(90deg, var(--accent-btn), var(--accent-2));
   }
 
-  /* ===== シーン ===== */
+  /* ===== シーン (方向つきキネティック切替) ===== */
+  /* 待機: 進入方向にオフセット+ブラー / active: 定位置 / leaving: 逆方向へ抜けて消える */
   .scene {
     position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
-    opacity: 0; transform: scale(0.97);
-    transition: opacity 0.65s ease, transform 0.9s cubic-bezier(0.22,1,0.36,1);
+    opacity: 0;
+    transform: translate(var(--ex, 0px), var(--ey, 46px)) scale(0.94);
+    filter: blur(14px);
+    transition: opacity 0.5s ease, transform 0.85s cubic-bezier(0.22,1,0.36,1), filter 0.55s ease;
     pointer-events: none;
   }
-  .scene.active { opacity: 1; transform: scale(1); pointer-events: auto; }
+  .scene.active { opacity: 1; transform: none; filter: none; pointer-events: auto; }
+  .scene.leaving {
+    opacity: 0;
+    transform: translate(calc(var(--ex, 0px) * -0.7), calc(var(--ey, 46px) * -0.5)) scale(1.05);
+    filter: blur(12px);
+    transition: opacity 0.55s ease, transform 0.7s cubic-bezier(0.55,0,0.55,0.2), filter 0.55s ease;
+  }
+
+  /* 光のスイープ (シーン切替の瞬間に画面を走る) */
+  .sweep {
+    position: absolute; inset: -5%; z-index: 35; pointer-events: none; opacity: 0;
+    background: linear-gradient(105deg, transparent 42%, rgba(255,255,255,0.65) 50%, rgba(160,210,255,0.35) 54%, transparent 62%);
+    transform: translateX(-130%) skewX(-8deg);
+  }
+  .sweep.go { animation: sweepGo 0.85s cubic-bezier(0.3,0,0.2,1) forwards; }
+  @keyframes sweepGo {
+    0% { opacity: 0; transform: translateX(-130%) skewX(-8deg); }
+    12% { opacity: 1; }
+    100% { opacity: 0; transform: translateX(130%) skewX(-8deg); }
+  }
+
+  /* 浮遊パーティクル (空間全体の躍動感) */
+  .dots { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+  .dot {
+    position: absolute; bottom: -3%; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, rgba(140,190,255,0.9), rgba(0,102,214,0.35));
+    animation: rise linear infinite;
+  }
+  @keyframes rise {
+    0% { transform: translateY(0) translateX(0); opacity: 0; }
+    12% { opacity: var(--o, 0.5); }
+    88% { opacity: var(--o, 0.5); }
+    100% { transform: translateY(-114vh) translateX(var(--sway, 30px)); opacity: 0; }
+  }
+
+  /* ===== シーン内の時間差エントランス ===== */
+  .cap .eyebrow, .cap h2, .cap p, .cap .featurebar { opacity: 0; transform: translateY(30px); }
+  .scene.active .cap .eyebrow { animation: riseIn 0.6s cubic-bezier(0.22,1,0.36,1) forwards 0.12s; }
+  .scene.active .cap h2 { animation: riseIn 0.75s cubic-bezier(0.22,1,0.36,1) forwards 0.26s; }
+  .scene.active .cap p { animation: riseIn 0.75s cubic-bezier(0.22,1,0.36,1) forwards 0.42s; }
+  .scene.active .cap .featurebar { animation: riseIn 0.75s cubic-bezier(0.22,1,0.36,1) forwards 0.58s; }
+  @keyframes riseIn { to { opacity: 1; transform: none; } }
+
+  .stage3d { opacity: 0; }
+  .scene.active .stage3d { animation: phoneIn 1.0s cubic-bezier(0.22,1,0.36,1) forwards 0.18s; }
+  @keyframes phoneIn {
+    from { opacity: 0; transform: translateX(110px) translateY(40px) rotate(5deg) scale(0.9); }
+    to { opacity: 1; transform: none; }
+  }
+  /* 左から入るシーンはフォンも左から */
+  .scene.from-left .stage3d { animation-name: phoneInL; }
+  .scene.from-left.active .stage3d { animation: phoneInL 1.0s cubic-bezier(0.22,1,0.36,1) forwards 0.18s; }
+  @keyframes phoneInL {
+    from { opacity: 0; transform: translateX(-110px) translateY(40px) rotate(-5deg) scale(0.9); }
+    to { opacity: 1; transform: none; }
+  }
+
+  /* センターシーン (オープニング/エンディング) の時間差 */
+  .center-scene .logo-mark { opacity: 0; }
+  .scene.active .center-scene .logo-mark { animation: logoDrop 0.85s cubic-bezier(0.34,1.56,0.64,1) forwards 0.1s, logoPulse 2.6s ease-in-out 1.0s infinite; }
+  @keyframes logoDrop {
+    from { opacity: 0; transform: translateY(-90px) scale(0.5) rotate(-8deg); }
+    60% { opacity: 1; transform: translateY(10px) scale(1.06) rotate(2deg); }
+    to { opacity: 1; transform: none; }
+  }
+  .center-scene .wordmark, .center-scene .tagline, .center-scene .sub-tagline,
+  .center-scene .cta-chip, .center-scene .steps-row { opacity: 0; transform: translateY(28px); }
+  .scene.active .center-scene .wordmark { animation: riseIn 0.7s cubic-bezier(0.22,1,0.36,1) forwards 0.4s; }
+  .scene.active .center-scene .tagline { animation: riseIn 0.7s cubic-bezier(0.22,1,0.36,1) forwards 0.62s; }
+  .scene.active .center-scene .sub-tagline { animation: riseIn 0.7s cubic-bezier(0.22,1,0.36,1) forwards 0.6s; }
+  .scene.active .center-scene .cta-chip { animation: ctaPop 0.75s cubic-bezier(0.34,1.56,0.64,1) forwards 0.85s, ctaRing 2.0s ease-out 1.7s infinite; }
+  .scene.active .center-scene .steps-row { animation: riseIn 0.7s cubic-bezier(0.22,1,0.36,1) forwards 1.05s; }
+  @keyframes ctaPop { from { opacity: 0; transform: translateY(30px) scale(0.7); } to { opacity: 1; transform: none; } }
+  @keyframes ctaRing {
+    0% { box-shadow: 0 20px 50px rgba(0,102,214,0.38), 0 0 0 0 rgba(0,102,214,0.35); }
+    100% { box-shadow: 0 20px 50px rgba(0,102,214,0.38), 0 0 0 34px rgba(0,102,214,0); }
+  }
 
   .split { width: 1720px; display: grid; grid-template-columns: 1fr 1fr; align-items: center; gap: 64px; }
   .cap { max-width: 700px; }
@@ -185,6 +264,12 @@
   @keyframes pinIn { to { opacity: 1; transform: scale(1); } }
 
   .featurebar { display: flex; gap: 14px; margin-top: 34px; }
+  .featurebar .fpill { opacity: 0; transform: translateY(16px) scale(0.9); }
+  .scene.active .featurebar .fpill { animation: pillIn 0.55s cubic-bezier(0.34,1.56,0.64,1) forwards; }
+  .scene.active .featurebar .fpill:nth-child(1) { animation-delay: 0.66s; }
+  .scene.active .featurebar .fpill:nth-child(2) { animation-delay: 0.78s; }
+  .scene.active .featurebar .fpill:nth-child(3) { animation-delay: 0.9s; }
+  @keyframes pillIn { to { opacity: 1; transform: none; } }
   .fpill {
     display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: 999px;
     background: var(--card); border: 1px solid var(--card-border); font-size: 16px; font-weight: 700; color: var(--ink-2);
@@ -218,6 +303,8 @@
 <body>
 <div class="reel" id="reel">
   <div class="bg"><div class="orb a"></div><div class="orb b"></div></div>
+  <div class="dots" id="dots"></div>
+  <div class="sweep" id="sweep"></div>
   <div class="hud-brand"><span class="mark">🚻</span>トイレファインダー</div>
   <div class="hud-counter" id="hudCounter">01 / 07</div>
   <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
@@ -232,7 +319,7 @@
   </section>
 
   <!-- Scene 1: 最寄り検索 -->
-  <section class="scene" data-scene>
+  <section class="scene" data-scene style="--ex:120px; --ey:0px">
     <div class="split">
       <div class="cap">
         <span class="eyebrow">SCENE 01 — 知らない街の駅を出た、その瞬間</span>
@@ -256,7 +343,7 @@
   </section>
 
   <!-- Scene 2: 安心ルート -->
-  <section class="scene" data-scene>
+  <section class="scene from-left" data-scene style="--ex:-120px; --ey:0px">
     <div class="split">
       <div class="cap">
         <span class="eyebrow">SCENE 02 — 初めての道を、長距離ドライブ</span>
@@ -293,7 +380,7 @@
   </section>
 
   <!-- Scene 3: 交通手段 -->
-  <section class="scene" data-scene>
+  <section class="scene" data-scene style="--ex:120px; --ey:0px">
     <div class="split">
       <div class="cap">
         <span class="eyebrow">SCENE 03 — 移動手段は、人それぞれ</span>
@@ -324,7 +411,7 @@
   </section>
 
   <!-- Scene 4: コンビニ/GS -->
-  <section class="scene" data-scene>
+  <section class="scene from-left" data-scene style="--ex:-120px; --ey:0px">
     <div class="split">
       <div class="cap">
         <span class="eyebrow">SCENE 04 — トイレが見当たらない道でも</span>
@@ -358,7 +445,7 @@
   </section>
 
   <!-- Scene 5: ダークモード -->
-  <section class="scene" data-scene>
+  <section class="scene" data-scene style="--ex:120px; --ey:0px">
     <div class="split">
       <div class="cap">
         <span class="eyebrow">SCENE 05 — 陽が落ちても</span>
@@ -423,6 +510,24 @@
   const sceneEls = [...document.querySelectorAll('[data-scene]')];
   const counterEl = document.getElementById('hudCounter');
   const fillEl = document.getElementById('progressFill');
+  const sweepEl = document.getElementById('sweep');
+
+  // 浮遊パーティクルを生成 (サイズ・位置・速度・揺れをばらけさせる)
+  const dotsEl = document.getElementById('dots');
+  for (let i = 0; i < 16; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot';
+    const size = 5 + (i % 5) * 3;
+    d.style.width = d.style.height = size + 'px';
+    d.style.left = ((i * 61) % 97) + '%';
+    d.style.setProperty('--o', (0.18 + (i % 4) * 0.09).toFixed(2));
+    d.style.setProperty('--sway', (((i % 5) - 2) * 34) + 'px');
+    d.style.animationDuration = (11 + (i % 6) * 2.4) + 's';
+    d.style.animationDelay = (-(i * 1.7) % 14) + 's';
+    dotsEl.appendChild(d);
+  }
+
+  let lastIdx = -1;
 
   // Scene 3: 交通手段タブの切替アニメーション (car -> bike -> foot)
   const tmTabs = document.getElementById('tmTabs');
@@ -449,9 +554,24 @@
     windows.forEach((w, i) => {
       const activeFrom = w.start - (i > 0 ? CROSSFADE : 0);
       const isActive = elapsed >= activeFrom && elapsed < w.end;
-      sceneEls[i].classList.toggle('active', isActive);
+      const el = sceneEls[i];
+      // active→非activeの瞬間に leaving を付けて「逆方向へ抜ける」退場を再生する
+      if (el.classList.contains('active') && !isActive) {
+        el.classList.add('leaving');
+        setTimeout(() => el.classList.remove('leaving'), 900);
+      }
+      el.classList.toggle('active', isActive);
       if (elapsed >= w.start && elapsed < w.end) currentIdx = i;
     });
+    // シーンが替わった瞬間に光のスイープを走らせる
+    if (currentIdx !== lastIdx) {
+      if (lastIdx >= 0) {
+        sweepEl.classList.remove('go');
+        void sweepEl.offsetWidth; // アニメーション再スタートのためのreflow
+        sweepEl.classList.add('go');
+      }
+      lastIdx = currentIdx;
+    }
     counterEl.textContent = String(currentIdx + 1).padStart(2, '0') + ' / ' + String(scenes.length).padStart(2, '0');
     fillEl.style.width = Math.min(100, (elapsed / total) * 100) + '%';
 
