@@ -88,7 +88,7 @@
     border-bottom: 1px solid var(--hairline);
   }
   .nav-in { display: flex; align-items: center; gap: 12px; padding: 14px 24px; max-width: 1120px; margin: 0 auto; }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 17px; letter-spacing: 0.01em; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 900; font-size: 17px; }
   .brand .mark { font-size: 22px; filter: drop-shadow(0 2px 6px rgba(0, 102, 214, 0.35)); }
   .nav-links { margin-left: auto; display: flex; gap: 22px; font-size: 14px; }
   .nav-links a { color: var(--ink-2); text-decoration: none; font-weight: 600; }
@@ -113,16 +113,11 @@
     margin: 20px 0 16px;
     font-size: clamp(38px, 5.6vw, 62px);
     line-height: 1.16;
-    font-weight: 800;
-    letter-spacing: 0.005em;
+    font-weight: 900;
   }
-  h1 .grad {
-    background: linear-gradient(120deg, var(--accent) 10%, var(--accent-2) 55%, #7a5cff 100%);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-  }
-  .lede { font-size: 17px; color: var(--ink-2); max-width: 46ch; }
+  /* シンプル&太め: グラデーション文字はやめて単色アクセントで強く */
+  h1 .grad { color: var(--accent); }
+  .lede { font-size: 17px; font-weight: 600; color: var(--ink-2); max-width: 46ch; }
   .hero-cta { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 30px; }
   .btn {
     display: inline-flex; align-items: center; gap: 9px;
@@ -138,7 +133,7 @@
   .btn.primary:hover { box-shadow: 0 18px 44px rgba(0, 102, 214, 0.45); transform: translateY(-2px); }
   .btn.ghost { background: rgba(255, 255, 255, 0.8); border: 1px solid var(--hairline); color: var(--ink); box-shadow: 0 6px 18px rgba(15, 35, 90, 0.08); }
   .hero-stats { display: flex; gap: 30px; margin-top: 36px; }
-  .stat b { display: block; font-size: 24px; font-weight: 800; letter-spacing: -0.01em; }
+  .stat b { display: block; font-size: 24px; font-weight: 900; }
   .stat span { font-size: 12.5px; color: var(--ink-3); }
 
   /* ===== 3D フォン ===== */
@@ -218,8 +213,8 @@
   section { padding: 74px 0; position: relative; }
   .sec-head { text-align: center; max-width: 640px; margin: 0 auto 46px; }
   .sec-head .eyebrow { margin-bottom: 14px; }
-  h2 { font-size: clamp(26px, 3.6vw, 38px); font-weight: 800; line-height: 1.3; }
-  .sec-head p { margin-top: 12px; color: var(--ink-2); font-size: 15.5px; }
+  h2 { font-size: clamp(26px, 3.6vw, 38px); font-weight: 900; line-height: 1.3; }
+  .sec-head p { margin-top: 12px; color: var(--ink-2); font-size: 15.5px; font-weight: 600; }
 
   /* ===== 機能カード (3Dチルト) ===== */
   .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; perspective: 1100px; }
@@ -242,8 +237,8 @@
     transform: translateZ(26px);
     margin-bottom: 16px;
   }
-  .card h3 { font-size: 17px; font-weight: 800; margin-bottom: 8px; }
-  .card p { font-size: 13.5px; color: var(--ink-2); }
+  .card h3 { font-size: 17px; font-weight: 900; margin-bottom: 8px; }
+  .card p { font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
 
   /* ===== 安心ルートの仕組み (帯) ===== */
   .how-band {
@@ -266,8 +261,8 @@
     box-shadow: 0 10px 26px rgba(0, 102, 214, 0.35);
     margin-bottom: 14px;
   }
-  .step h4 { font-size: 16px; font-weight: 800; margin-bottom: 6px; }
-  .step p { font-size: 13.5px; color: var(--ink-2); }
+  .step h4 { font-size: 16px; font-weight: 900; margin-bottom: 6px; }
+  .step p { font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
 
   /* ===== 信頼バッジ ===== */
   .badges { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
